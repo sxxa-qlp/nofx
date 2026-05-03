@@ -31,6 +31,7 @@ const SUPPORTED_EXCHANGE_TEMPLATES = [
   { exchange_type: 'aster', name: 'Aster DEX', type: 'dex' as const },
   { exchange_type: 'lighter', name: 'Lighter', type: 'dex' as const },
   { exchange_type: 'indodax', name: 'Indodax', type: 'cex' as const },
+  { exchange_type: 'paper', name: 'Paper Trading', type: 'cex' as const },
 ]
 
 interface ExchangeConfigModalProps {
@@ -206,6 +207,7 @@ export function ExchangeConfigModal({
     aster: { url: 'https://www.asterdex.com/en/referral/fdfc0e', hasReferral: true },
     lighter: { url: 'https://app.lighter.xyz/?referral=68151432', hasReferral: true },
     indodax: { url: 'https://indodax.com/ref/Saep23/1', hasReferral: true },
+    paper: { url: '#', hasReferral: false },
   }
 
   // Initialize form when editing
@@ -314,7 +316,9 @@ export function ExchangeConfigModal({
 
     setIsSaving(true)
     try {
-      if (currentExchangeType === 'binance' || currentExchangeType === 'bybit' || currentExchangeType === 'indodax') {
+      if (currentExchangeType === 'paper') {
+        await onSave(exchangeId, exchangeType, trimmedAccountName, '', '', '', false)
+      } else if (currentExchangeType === 'binance' || currentExchangeType === 'bybit' || currentExchangeType === 'indodax') {
         if (!apiKey.trim() || !secretKey.trim()) return
         await onSave(exchangeId, exchangeType, trimmedAccountName, apiKey.trim(), secretKey.trim(), '', testnet)
       } else if (currentExchangeType === 'okx' || currentExchangeType === 'bitget' || currentExchangeType === 'kucoin') {
@@ -468,23 +472,25 @@ export function ExchangeConfigModal({
                     {selectedTemplate.type.toUpperCase()} • {selectedTemplate.exchange_type}
                   </div>
                 </div>
-                <a
-                  href={exchangeRegistrationLinks[currentExchangeType || '']?.url || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105"
-                  style={{ background: 'rgba(240, 185, 11, 0.1)', border: '1px solid rgba(240, 185, 11, 0.3)' }}
-                >
-                  <UserPlus className="w-4 h-4" style={{ color: '#F0B90B' }} />
-                  <span className="text-sm font-medium" style={{ color: '#F0B90B' }}>
-                    {t('exchangeConfig.register', language)}
-                  </span>
-                  {exchangeRegistrationLinks[currentExchangeType || '']?.hasReferral && (
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(14, 203, 129, 0.2)', color: '#0ECB81' }}>
-                      {t('exchangeConfig.bonus', language)}
+                {currentExchangeType !== 'paper' && (
+                  <a
+                    href={exchangeRegistrationLinks[currentExchangeType || '']?.url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105"
+                    style={{ background: 'rgba(240, 185, 11, 0.1)', border: '1px solid rgba(240, 185, 11, 0.3)' }}
+                  >
+                    <UserPlus className="w-4 h-4" style={{ color: '#F0B90B' }} />
+                    <span className="text-sm font-medium" style={{ color: '#F0B90B' }}>
+                      {t('exchangeConfig.register', language)}
                     </span>
-                  )}
-                </a>
+                    {exchangeRegistrationLinks[currentExchangeType || '']?.hasReferral && (
+                      <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(14, 203, 129, 0.2)', color: '#0ECB81' }}>
+                        {t('exchangeConfig.bonus', language)}
+                      </span>
+                    )}
+                  </a>
+                )}
               </div>
 
               {/* Account Name */}
@@ -753,6 +759,12 @@ export function ExchangeConfigModal({
                     <input type="number" min={0} max={255} value={lighterApiKeyIndex} onChange={(e) => setLighterApiKeyIndex(parseInt(e.target.value) || 0)} className="w-full px-4 py-3 rounded-xl" style={{ background: '#0B0E11', border: '1px solid #2B3139', color: '#EAECEF' }} />
                   </div>
                 </>
+              )}
+
+              {currentExchangeType === 'paper' && (
+                <div className="p-4 rounded-xl text-sm" style={{ background: 'rgba(14, 203, 129, 0.08)', border: '1px solid rgba(14, 203, 129, 0.2)', color: '#9FE8C5' }}>
+                  Paper Trading uses live market data but keeps orders, positions, balance, and PnL locally. No exchange API keys are required and no live orders are sent.
+                </div>
               )}
 
               {/* Buttons */}

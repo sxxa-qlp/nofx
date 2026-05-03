@@ -21,6 +21,7 @@ import (
 	"nofx/trader/kucoin"
 	"nofx/trader/lighter"
 	"nofx/trader/okx"
+	"nofx/trader/paper"
 
 	"github.com/gin-gonic/gin"
 )
@@ -258,6 +259,8 @@ func buildExchangeProbeTrader(exchangeCfg *store.Exchange, userID string) (trade
 			exchangeCfg.LighterAPIKeyIndex,
 			false,
 		)
+	case "paper":
+		return paper.NewPaperTrader(10000), nil
 	default:
 		return nil, fmt.Errorf("unsupported exchange type: %s", exchangeCfg.ExchangeType)
 	}
@@ -313,6 +316,8 @@ func accountAssetForExchange(exchangeType string) string {
 	switch exchangeType {
 	case "hyperliquid", "aster", "lighter":
 		return "USDC"
+	case "paper":
+		return "USDT"
 	default:
 		return "USDT"
 	}
@@ -333,6 +338,9 @@ func missingExchangeCredentials(exchangeCfg *store.Exchange) (status string, cod
 	)
 	if len(missingFields) > 0 {
 		if len(missingFields) == 1 && missingFields[0] == "exchange_type" {
+			if exchangeCfg.ExchangeType == "paper" {
+				return "", "", "", false
+			}
 			return exchangeAccountStatusUnavailable, "UNSUPPORTED_EXCHANGE", "Unsupported exchange type", true
 		}
 		return exchangeAccountStatusMissingCredentials, "MISSING_REQUIRED_FIELDS", "Missing required fields: " + strings.Join(missingFields, ", "), true

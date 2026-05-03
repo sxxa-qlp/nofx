@@ -19,6 +19,7 @@ import (
 	"nofx/trader/kucoin"
 	"nofx/trader/lighter"
 	"nofx/trader/okx"
+	"nofx/trader/paper"
 	"nofx/wallet"
 	"sync"
 	"time"
@@ -57,7 +58,7 @@ type AutoTraderConfig struct {
 	AIModel string // AI model: "qwen" or "deepseek"
 
 	// Trading platform selection
-	Exchange   string // Exchange type: "binance", "bybit", "okx", "bitget", "gate", "hyperliquid", "aster" or "lighter"
+	Exchange   string // Exchange type: "binance", "bybit", "okx", "bitget", "gate", "hyperliquid", "aster", "lighter" or "paper"
 	ExchangeID string // Exchange account UUID (for multi-account support)
 
 	// Binance API configuration
@@ -312,12 +313,18 @@ func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*Au
 	case "indodax":
 		logger.Infof("🏦 [%s] Using Indodax Spot trading", config.Name)
 		trader = indodax.NewIndodaxTrader(config.IndodaxAPIKey, config.IndodaxSecretKey)
+	case "paper":
+		if config.InitialBalance <= 0 {
+			config.InitialBalance = 10000
+		}
+		logger.Infof("📝 [%s] Using local paper trading exchange (initial balance %.2f)", config.Name, config.InitialBalance)
+		trader = paper.NewPaperTrader(config.InitialBalance)
 	default:
 		return nil, fmt.Errorf("unsupported trading platform: %s", config.Exchange)
 	}
 
 	// Validate initial balance configuration, auto-fetch from exchange if 0
-	if config.InitialBalance <= 0 {
+	if config.InitialBalance <= 0 && config.Exchange != "paper" {
 		logger.Infof("📊 [%s] Initial balance not set, attempting to fetch current balance from exchange...", config.Name)
 		account, err := trader.GetBalance()
 		if err != nil {

@@ -3,11 +3,11 @@ package trader
 import (
 	"fmt"
 	"math"
-	"nofx/telemetry"
 	"nofx/kernel"
 	"nofx/logger"
 	"nofx/market"
 	"nofx/store"
+	"nofx/telemetry"
 	"time"
 )
 
@@ -285,7 +285,7 @@ func (at *AutoTrader) recordAndConfirmOrder(orderResult map[string]interface{}, 
 		return
 	}
 
-	// For exchanges without OrderSync (e.g., Binance): record immediately and poll for fill data
+	// For exchanges without OrderSync (including paper): record immediately and poll for fill data
 	orderRecord := at.createOrderRecord(orderID, symbol, action, positionSide, quantity, price, leverage)
 	if err := at.store.Order().CreateOrder(orderRecord); err != nil {
 		logger.Infof("  ⚠️ Failed to record order: %v", err)

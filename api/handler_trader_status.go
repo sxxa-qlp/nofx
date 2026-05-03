@@ -150,6 +150,17 @@ func (s *Server) handleClosePosition(c *gin.Context) {
 		return
 	}
 
+	// Use the in-memory paper trader so local virtual positions are preserved.
+	if exchangeCfg.ExchangeType == "paper" {
+		autoTrader, getErr := s.traderManager.GetTrader(traderID)
+		if getErr != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Trader does not exist"})
+			return
+		}
+		s.closePositionWithTrader(c, autoTrader.GetUnderlyingTrader(), traderID, exchangeCfg, req.Symbol, req.Side)
+		return
+	}
+
 	// Create temporary trader to execute close position
 	var tempTrader trader.Trader
 	var createErr error
@@ -223,6 +234,10 @@ func (s *Server) handleClosePosition(c *gin.Context) {
 		return
 	}
 
+	s.closePositionWithTrader(c, tempTrader, traderID, exchangeCfg, req.Symbol, req.Side)
+}
+
+func (s *Server) closePositionWithTrader(c *gin.Context, tempTrader trader.Trader, traderID string, exchangeCfg *store.Exchange, symbol, side string) {
 	// Get current position info BEFORE closing (to get quantity and price)
 	positions, err := tempTrader.GetPositions()
 	if err != nil {
@@ -232,7 +247,7 @@ func (s *Server) handleClosePosition(c *gin.Context) {
 	var posQty float64
 	var entryPrice float64
 	for _, pos := range positions {
-		if pos["symbol"] == req.Symbol && pos["side"] == strings.ToLower(req.Side) {
+		if pos["symbol"] == symbol && pos["side"] == strings.ToLower(side) {
 			if amt, ok := pos["positionAmt"].(float64); ok {
 				posQty = amt
 				if posQty < 0 {
@@ -250,30 +265,30 @@ func (s *Server) handleClosePosition(c *gin.Context) {
 	var result map[string]interface{}
 	var closeErr error
 
-	if req.Side == "LONG" {
-		result, closeErr = tempTrader.CloseLong(req.Symbol, 0) // 0 means close all
-	} else if req.Side == "SHORT" {
-		result, closeErr = tempTrader.CloseShort(req.Symbol, 0) // 0 means close all
+	if side == "LONG" {
+		result, closeErr = tempTrader.CloseLong(symbol, 0) // 0 means close all
+	} else if side == "SHORT" {
+		result, closeErr = tempTrader.CloseShort(symbol, 0) // 0 means close all
 	} else {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "side must be LONG or SHORT"})
 		return
 	}
 
 	if closeErr != nil {
-		logger.Infof("❌ Close position failed: symbol=%s, side=%s, error=%v", req.Symbol, req.Side, closeErr)
+		logger.Infof("❌ Close position failed: symbol=%s, side=%s, error=%v", symbol, side, closeErr)
 		SafeInternalError(c, "Close position", closeErr)
 		return
 	}
 
-	logger.Infof("✅ Position closed successfully: symbol=%s, side=%s, qty=%.6f, result=%v", req.Symbol, req.Side, posQty, result)
+	logger.Infof("✅ Position closed successfully: symbol=%s, side=%s, qty=%.6f, result=%v", symbol, side, posQty, result)
 
 	// Record order to database (for chart markers and history)
-	s.recordClosePositionOrder(traderID, exchangeCfg.ID, exchangeCfg.ExchangeType, req.Symbol, req.Side, posQty, entryPrice, result)
+	s.recordClosePositionOrder(traderID, exchangeCfg.ID, exchangeCfg.ExchangeType, symbol, side, posQty, entryPrice, result)
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Position closed successfully",
-		"symbol":  req.Symbol,
-		"side":    req.Side,
+		"symbol":  symbol,
+		"side":    side,
 		"result":  result,
 	})
 }

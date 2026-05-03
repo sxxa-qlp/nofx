@@ -697,6 +697,8 @@ func (tm *TraderManager) addTraderFromStore(traderCfg *store.Trader, aiModelCfg 
 	case "indodax":
 		traderConfig.IndodaxAPIKey = string(exchangeCfg.APIKey)
 		traderConfig.IndodaxSecretKey = string(exchangeCfg.SecretKey)
+	case "paper":
+		// Paper exchange has no external credentials.
 	}
 
 	// Set API keys based on AI model (convert EncryptedString to string)
