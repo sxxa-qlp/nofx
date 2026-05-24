@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log/slog"
-	nofxiagent "nofx/agent"
 	"nofx/api"
 	"nofx/auth"
 	"nofx/config"
@@ -12,8 +10,6 @@ import (
 	_ "nofx/mcp/payment"
 	_ "nofx/mcp/provider"
 	"nofx/store"
-	"nofx/telegram"
-	"nofx/telemetry"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -82,8 +78,8 @@ func main() {
 	}
 	defer st.Close()
 
-	// Initialize installation ID for experience improvement (anonymous statistics)
-	initInstallationID(st)
+	// Phase 1 simplification: telemetry is frozen, so anonymous usage events are not initialized.
+	// initInstallationID(st)
 
 	// Set JWT secret
 	auth.SetJWTSecret(cfg.JWTSecret)
@@ -132,26 +128,14 @@ func main() {
 	// Start API server
 	server := api.NewServer(traderManager, st, cryptoService, cfg.APIServerPort)
 
-	// Create hot-reload channel for Telegram bot; wire it to the API server
-	// so that POST /api/telegram can trigger a bot restart when the token changes.
-	telegramReloadCh := make(chan struct{}, 1)
-	server.SetTelegramReloadCh(telegramReloadCh)
-
-	// Start the NOFXi web agent on top of the current dev branch services.
-	nofxiAgent := nofxiagent.New(traderManager, st, nil, slog.Default())
-	agentWeb := nofxiagent.NewWebHandler(nofxiAgent, slog.Default())
-	server.RegisterAgentHandler(agentWeb)
-	nofxiAgent.Start()
-	defer nofxiAgent.Stop()
+	// Phase 1 simplification: Telegram and NOFXi agent subsystems are frozen.
+	// They remain in the repository but are not started or exposed by default.
 
 	go func() {
 		if err := server.Start(); err != nil {
 			logger.Fatalf("❌ Failed to start API server: %v", err)
 		}
 	}()
-
-	// Start Telegram bot (if TELEGRAM_BOT_TOKEN is configured)
-	go telegram.Start(cfg, st, telegramReloadCh)
 
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
@@ -167,8 +151,6 @@ func main() {
 		logger.Warnf("⚠️ HTTP server shutdown error: %v", err)
 	}
 	logger.Info("✅ HTTP server stopped")
-
-	// nofxiAgent.Stop() is handled by defer above
 
 	// Stop all traders
 	traderManager.StopAll()
@@ -195,6 +177,5 @@ func initInstallationID(st *store.Store) {
 		logger.Infof("📊 Generated new installation ID: %s", installationID[:8]+"...")
 	}
 
-	// Set installation ID in experience module
-	telemetry.SetInstallationID(installationID)
+	// Phase 1 simplification: telemetry is frozen; keep installation ID persisted but do not emit events.
 }

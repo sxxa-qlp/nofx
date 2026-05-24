@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { User, Cpu, Building2, MessageCircle, Eye, EyeOff, ChevronRight, Plus, Pencil } from 'lucide-react'
+import { User, Cpu, Building2, Eye, EyeOff, ChevronRight, Plus, Pencil } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { api } from '../lib/api'
 import { ExchangeConfigModal } from '../components/trader/ExchangeConfigModal'
-import { TelegramConfigModal } from '../components/trader/TelegramConfigModal'
 import { ModelConfigModal } from '../components/trader/ModelConfigModal'
 import type { Exchange, AIModel } from '../types'
 
-type Tab = 'account' | 'models' | 'exchanges' | 'telegram'
+type Tab = 'account' | 'models' | 'exchanges'
 
 function configBadge(label: string, active: boolean) {
   return (
@@ -45,9 +44,6 @@ export function SettingsPage() {
   const [exchanges, setExchanges] = useState<Exchange[]>([])
   const [showExchangeModal, setShowExchangeModal] = useState(false)
   const [editingExchange, setEditingExchange] = useState<string | null>(null)
-
-  // Telegram state
-  const [showTelegramModal, setShowTelegramModal] = useState(false)
 
   const refreshModelConfigs = async () => {
     const [configs, supported] = await Promise.all([
@@ -272,7 +268,6 @@ export function SettingsPage() {
     { key: 'account', label: 'Account', icon: <User size={16} /> },
     { key: 'models', label: 'AI Models', icon: <Cpu size={16} /> },
     { key: 'exchanges', label: 'Exchanges', icon: <Building2 size={16} /> },
-    { key: 'telegram', label: 'Telegram', icon: <MessageCircle size={16} /> },
   ]
 
   return (
@@ -451,27 +446,6 @@ export function SettingsPage() {
               )}
             </div>
           )}
-
-          {/* Telegram Tab */}
-          {activeTab === 'telegram' && (
-            <div className="space-y-4">
-              <p className="text-sm text-zinc-400">
-                Connect a Telegram bot to receive trading notifications and interact with your traders.
-              </p>
-              <button
-                onClick={() => setShowTelegramModal(true)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#0088cc]/20 flex items-center justify-center">
-                    <MessageCircle size={14} className="text-[#0088cc]" />
-                  </div>
-                  <span className="text-sm font-medium text-white">Configure Telegram Bot</span>
-                </div>
-                <ChevronRight size={14} className="text-zinc-600 group-hover:text-zinc-400 transition-colors" />
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -499,16 +473,6 @@ export function SettingsPage() {
             onSave={handleSaveExchange}
             onDelete={handleDeleteExchange}
             onClose={() => { setShowExchangeModal(false); setEditingExchange(null) }}
-            language={language}
-          />
-        </div>
-      )}
-
-      {/* Telegram Modal */}
-      {showTelegramModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <TelegramConfigModal
-            onClose={() => setShowTelegramModal(false)}
             language={language}
           />
         </div>

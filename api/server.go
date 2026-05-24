@@ -98,13 +98,10 @@ func (s *Server) setupRoutes() {
 		api.GET("/crypto/public-key", s.cryptoHandler.HandleGetPublicKey)
 		api.POST("/crypto/decrypt", s.cryptoHandler.HandleDecryptSensitiveData)
 
-		// Public competition data (no authentication required)
-		s.route(api, "GET", "/traders", "Public trader list", s.handlePublicTraderList)
-		s.route(api, "GET", "/competition", "Public competition data", s.handlePublicCompetition)
-		s.route(api, "GET", "/top-traders", "Top traders leaderboard", s.handleTopTraders)
+		// Phase 1 simplification: public competition/leaderboard routes are frozen.
+		// Keep equity history because the authenticated dashboard uses it for trading-process visibility.
 		s.route(api, "GET", "/equity-history", "Equity history for a trader", s.handleEquityHistory)
 		s.route(api, "POST", "/equity-history-batch", "Batch equity history for multiple traders", s.handleEquityHistoryBatch)
-		s.route(api, "GET", "/traders/:id/public-config", "Public trader configuration", s.handleGetPublicTraderConfig)
 
 		// Market data (no authentication required)
 		s.route(api, "GET", "/klines", "Candlestick data (?symbol=&interval=&limit=)", s.handleKlines)
@@ -125,11 +122,7 @@ func (s *Server) setupRoutes() {
 		{
 			// Logout (add to blacklist)
 			s.route(protected, "POST", "/logout", "Logout (blacklist token)", s.handleLogout)
-			s.route(protected, "POST", "/onboarding/beginner", "Prepare beginner claw402 wallet and default model", s.handleBeginnerOnboarding)
-			s.route(protected, "GET", "/onboarding/beginner/current", "Get current beginner claw402 wallet", s.handleCurrentBeginnerWallet)
-			s.route(protected, "GET", "/agent/preferences", "Get persistent agent preferences", s.handleGetAgentPreferences)
-			s.route(protected, "POST", "/agent/preferences", "Create persistent agent preference", s.handleCreateAgentPreference)
-			s.route(protected, "DELETE", "/agent/preferences/:id", "Delete persistent agent preference", s.handleDeleteAgentPreference)
+			// Phase 1 simplification: onboarding and agent preference routes are frozen.
 
 			// User account management
 			s.routeWithSchema(protected, "PUT", "/user/password", "Change current user password",
@@ -175,10 +168,7 @@ Only include fields you want to change.`,
 				`:id = trader_id from GET /api/my-traders.
 Body: {"symbol":"<string, e.g. BTCUSDT — must match an open position symbol from GET /api/positions>"}`,
 				s.handleClosePosition)
-			s.routeWithSchema(protected, "PUT", "/traders/:id/competition", "Toggle competition leaderboard visibility",
-				`:id = trader_id from GET /api/my-traders.
-Body: {"show_in_competition":<bool>}`,
-				s.handleToggleCompetition)
+			// Phase 1 simplification: competition visibility toggling is frozen.
 			s.routeWithSchema(protected, "GET", "/traders/:id/grid-risk", "Get grid trading risk info",
 				`:id = trader_id from GET /api/my-traders.`,
 				s.handleGetGridRiskInfo)
@@ -225,20 +215,7 @@ Use this to enable/disable an exchange or update API credentials. The "id" field
 				`:id = EXACT id from GET /api/exchanges. Permanently removes the exchange account and disconnects any traders using it.`,
 				s.handleDeleteExchange)
 
-			// Telegram bot configuration
-			s.routeWithSchema(protected, "GET", "/telegram", "Get Telegram bot configuration",
-				`Returns: {"bot_token":"<string>","model_id":"<EXACT id of configured AI model>","chat_id":"<bound Telegram chat id, empty if not bound>"}`,
-				s.handleGetTelegramConfig)
-			s.routeWithSchema(protected, "POST", "/telegram", "Set Telegram bot token and AI model",
-				`Body: {"bot_token":"<string — Telegram BotFather token>","model_id":"<EXACT id from GET /api/models>"}
-Both fields are required. After saving, the user must send /start in Telegram to bind their account.`,
-				s.handleUpdateTelegramConfig)
-			s.routeWithSchema(protected, "POST", "/telegram/model", "Update Telegram bot AI model only",
-				`Body: {"model_id":"<EXACT id from GET /api/models>"}`,
-				s.handleUpdateTelegramModel)
-			s.routeWithSchema(protected, "DELETE", "/telegram/binding", "Unbind Telegram account",
-				`No body needed. Clears the Telegram chat_id binding so the user can re-bind with /start.`,
-				s.handleUnbindTelegram)
+			// Phase 1 simplification: Telegram bot configuration routes are frozen.
 
 			// Strategy management
 			s.routeWithSchema(protected, "GET", "/strategies", "List user's strategies",

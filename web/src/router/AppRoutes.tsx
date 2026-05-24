@@ -16,13 +16,10 @@ import { LoginPage } from '../components/auth/LoginPage'
 import { RegisterPage } from '../components/auth/RegisterPage'
 import { ResetPasswordPage } from '../components/auth/ResetPasswordPage'
 import { SetupPage } from '../components/modals/SetupPage'
-import { CompetitionPage } from '../components/trader/CompetitionPage'
 import { AITradersPage } from '../components/trader/AITradersPage'
 import { FAQPage } from '../pages/FAQPage'
 import { LandingPage } from '../pages/LandingPage'
-import { BeginnerOnboardingPage } from '../pages/BeginnerOnboardingPage'
 import { DataPage } from '../pages/DataPage'
-import { AgentChatPage } from '../pages/AgentChatPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { StrategyMarketPage } from '../pages/StrategyMarketPage'
 import { StrategyStudioPage } from '../pages/StrategyStudioPage'
@@ -32,7 +29,6 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useSystemConfig } from '../hooks/useSystemConfig'
 import { t } from '../i18n/translations'
 import { api } from '../lib/api'
-import { getUserMode } from '../lib/onboarding'
 import type {
   AccountInfo,
   DecisionRecord,
@@ -192,11 +188,7 @@ function AppChrome({
   )
 }
 
-function TradersRoute({
-  showBeginnerOnboarding = false,
-}: {
-  showBeginnerOnboarding?: boolean
-}) {
+function TradersRoute() {
   const navigate = useNavigate()
   const { user, token } = useAuth()
   const { data: traders } = useSWR<TraderInfo[]>(
@@ -212,7 +204,6 @@ function TradersRoute({
     <AppChrome
       currentPage="traders"
       animateContent
-      extraContent={showBeginnerOnboarding ? <BeginnerOnboardingPage /> : null}
     >
       <AITradersPage
         onTraderSelect={(traderId) => {
@@ -457,14 +448,7 @@ export function AppRoutes() {
             </AppChrome>
           }
         />
-        <Route
-          path={ROUTES.agent}
-          element={
-            <AppChrome currentPage="agent" showFooter={false}>
-              <AgentChatPage />
-            </AppChrome>
-          }
-        />
+        <Route path={ROUTES.agent} element={<Navigate to={ROUTES.traders} replace />} />
         <Route
           path={ROUTES.data}
           element={
@@ -489,28 +473,13 @@ export function AppRoutes() {
           path={ROUTES.welcome}
           element={
             isAuthenticated ? (
-              getUserMode() === 'beginner' ? (
-                <TradersRoute showBeginnerOnboarding />
-              ) : (
-                <Navigate to={ROUTES.traders} replace />
-              )
+              <Navigate to={ROUTES.traders} replace />
             ) : (
               <Navigate to={ROUTES.login} replace />
             )
           }
         />
-        <Route
-          path={ROUTES.competition}
-          element={
-            isAuthenticated ? (
-              <AppChrome currentPage="competition" animateContent>
-                <CompetitionPage />
-              </AppChrome>
-            ) : (
-              <LandingPage />
-            )
-          }
-        />
+        <Route path={ROUTES.competition} element={<Navigate to={ROUTES.dashboard} replace />} />
         <Route
           path={ROUTES.strategyMarket}
           element={

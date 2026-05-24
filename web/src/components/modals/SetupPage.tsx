@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { invalidateSystemConfig } from '../../lib/config'
-import { OnboardingModeSelector } from '../auth/OnboardingModeSelector'
-import type { UserMode } from '../../lib/onboarding'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { LanguageSwitcher } from '../common/LanguageSwitcher'
 
@@ -57,7 +55,7 @@ export function SetupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<UserMode>('beginner')
+  const mode = 'advanced' as const
 
   // Clean up any stale auth/onboarding state on setup page load
   useEffect(() => {
@@ -185,11 +183,7 @@ export function SetupPage() {
                 </div>
               </div>
 
-              <OnboardingModeSelector
-                language={language}
-                mode={mode}
-                onChange={setMode}
-              />
+              {/* Phase 1 simplification: beginner onboarding is frozen, so new users enter the core app directly. */}
 
               {/* Error */}
               {error && (

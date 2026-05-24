@@ -117,6 +117,7 @@ export default function HeaderBar({
                   label: 'Agent',
                   badge: 'Beta',
                   requiresAuth: false,
+                  hidden: true,
                 },
                 {
                   page: 'data',
@@ -163,6 +164,7 @@ export default function HeaderBar({
                   path: ROUTES.competition,
                   label: t('realtimeNav', language),
                   requiresAuth: true,
+                  hidden: true,
                 },
                 {
                   page: 'faq',
@@ -452,6 +454,7 @@ export default function HeaderBar({
                       path: ROUTES.agent,
                       label: 'Agent',
                       requiresAuth: false,
+                      hidden: true,
                     },
                     {
                       page: 'data',
@@ -498,6 +501,7 @@ export default function HeaderBar({
                       path: ROUTES.competition,
                       label: t('realtimeNav', language),
                       requiresAuth: true,
+                      hidden: true,
                     },
                     {
                       page: 'faq',
