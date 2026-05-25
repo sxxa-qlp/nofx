@@ -136,3 +136,16 @@ PR_DESCRIPTION.md
 
 # Remote build outputs
 artifacts/
+
+# Local toolchains downloaded by remote build helper
+.tools/
+
+# Tracked release artifacts (kept in git on purpose)
+!release-artifacts/
+!release-artifacts/frontend/
+!release-artifacts/frontend/dist/
+!release-artifacts/frontend/dist/**
+!release-artifacts/backend/
+!release-artifacts/backend/**
+!release-artifacts/meta/
+!release-artifacts/meta/**
