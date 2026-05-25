@@ -4,6 +4,8 @@ import {
   BarChart3,
   Trash2,
   Pencil,
+  Eye,
+  EyeOff,
   Copy,
   Check,
 } from 'lucide-react'
