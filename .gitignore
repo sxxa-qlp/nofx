@@ -133,3 +133,6 @@ PR_DESCRIPTION.md
 
 # Go build artifacts
 /nofx-server
+
+# Remote build outputs
+artifacts/
