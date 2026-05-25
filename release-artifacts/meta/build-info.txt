@@ -1,0 +1,12 @@
+timestamp=20260525-132939
+root=/home/lipengqi/proj/nofx
+git_commit=446b7540f0e2e22f687f8bb8699d35b60e392976
+git_branch=dev
+node_path=/home/lipengqi/.local/node-v24.14.0-linux-x64/bin/node
+node_version=v24.14.0
+npm_path=/home/lipengqi/.local/node-v24.14.0-linux-x64/bin/npm
+npm_version=11.9.0
+go_path=/home/lipengqi/proj/nofx/.tools/go/bin/go
+go_version=go version go1.26.2 linux/amd64
+goos=linux
+goarch=amd64
