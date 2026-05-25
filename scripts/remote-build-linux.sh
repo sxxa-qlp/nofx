@@ -7,6 +7,7 @@ OUT_DIR="${ROOT_DIR}/artifacts/remote-build/${TIMESTAMP}"
 FRONTEND_DIR="${ROOT_DIR}/web"
 TOOLS_DIR="${ROOT_DIR}/.tools"
 LOCAL_GO_DIR="${TOOLS_DIR}/go"
+RELEASE_DIR="${ROOT_DIR}/release-artifacts"
 BACKEND_BIN_NAME="nofx-linux-amd64"
 ARCHIVE_NAME="nofx-remote-build-${TIMESTAMP}.tar.gz"
 
@@ -17,6 +18,10 @@ GO_INSTALL_VERSION="${GO_INSTALL_VERSION:-1.26.2}"
 NODE_BIN="${NODE_BIN:-node}"
 NPM_BIN="${NPM_BIN:-npm}"
 GO_BIN="${GO_BIN:-go}"
+GIT_REMOTE="${GIT_REMOTE:-origin}"
+GIT_BRANCH="${GIT_BRANCH:-dev}"
+AUTO_COMMIT_RELEASE_ARTIFACTS="${AUTO_COMMIT_RELEASE_ARTIFACTS:-1}"
+AUTO_PUSH_RELEASE_ARTIFACTS="${AUTO_PUSH_RELEASE_ARTIFACTS:-1}"
 
 PKG_MANAGER=""
 SUDO=""
@@ -178,6 +183,39 @@ ensure_go() {
   GO_BIN="$chosen_go"
 }
 
+sync_release_artifacts() {
+  log "Syncing build outputs into release-artifacts/"
+  mkdir -p "${RELEASE_DIR}/frontend/dist" "${RELEASE_DIR}/backend" "${RELEASE_DIR}/meta"
+  rsync -a --delete "${OUT_DIR}/frontend/dist/" "${RELEASE_DIR}/frontend/dist/"
+  cp -f "${OUT_DIR}/backend/${BACKEND_BIN_NAME}" "${RELEASE_DIR}/backend/${BACKEND_BIN_NAME}"
+  cp -f "${OUT_DIR}/meta/build-info.txt" "${RELEASE_DIR}/meta/build-info.txt"
+}
+
+commit_and_push_release_artifacts() {
+  if [ "$AUTO_COMMIT_RELEASE_ARTIFACTS" != "1" ]; then
+    log "AUTO_COMMIT_RELEASE_ARTIFACTS disabled; skipping git commit/push"
+    return
+  fi
+
+  cd "$ROOT_DIR"
+  git add release-artifacts
+
+  if git diff --cached --quiet; then
+    log "No release-artifacts changes to commit"
+    return
+  fi
+
+  local msg="build: update release artifacts (${TIMESTAMP})"
+  git commit -m "$msg"
+
+  if [ "$AUTO_PUSH_RELEASE_ARTIFACTS" = "1" ]; then
+    log "Pushing release-artifacts commit to ${GIT_REMOTE}/${GIT_BRANCH}"
+    git push "$GIT_REMOTE" "$GIT_BRANCH"
+  else
+    log "AUTO_PUSH_RELEASE_ARTIFACTS disabled; commit created locally only"
+  fi
+}
+
 log "Root: ${ROOT_DIR}"
 detect_package_manager
 ensure_base_packages
@@ -203,7 +241,7 @@ log "Type-checking frontend"
 log "Building frontend"
 "$NPM_BIN" run build
 
-log "Copying frontend dist"
+log "Copying frontend dist to artifacts workspace"
 rsync -a --delete "$FRONTEND_DIR/dist/" "${OUT_DIR}/frontend/dist/"
 
 log "Building backend binary (${GOOS_TARGET}/${GOARCH_TARGET})"
@@ -234,6 +272,9 @@ log "Creating archive ${ARCHIVE_NAME}"
 cd "${ROOT_DIR}/artifacts/remote-build"
 tar -czf "${ARCHIVE_NAME}" "${TIMESTAMP}"
 
+sync_release_artifacts
+commit_and_push_release_artifacts
+
 cat <<EOF
 
 Build finished.
@@ -244,8 +285,11 @@ Artifact directory:
 Archive:
   ${ROOT_DIR}/artifacts/remote-build/${ARCHIVE_NAME}
 
-Suggested sync-back targets on the weak machine:
-  - web/dist/
-  - backend/${BACKEND_BIN_NAME}
-  - meta/build-info.txt
+Release artifacts updated at:
+  ${RELEASE_DIR}
+
+Main files:
+  ${RELEASE_DIR}/frontend/dist/
+  ${RELEASE_DIR}/backend/${BACKEND_BIN_NAME}
+  ${RELEASE_DIR}/meta/build-info.txt
 EOF
