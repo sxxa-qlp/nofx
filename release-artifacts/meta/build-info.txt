@@ -1,6 +1,6 @@
-timestamp=20260525-133947
+timestamp=20260525-134225
 root=/home/lipengqi/proj/nofx
-git_commit=bf795dd96ebcc3d13732b3032234a67262e209d9
+git_commit=81a0c5dc0f196e873d69437684a2478342104494
 git_branch=dev
 node_path=/home/lipengqi/.local/node-v24.14.0-linux-x64/bin/node
 node_version=v24.14.0
