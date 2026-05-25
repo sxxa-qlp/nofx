@@ -259,7 +259,6 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
         strategy_id: data.strategy_id,
         scan_interval_minutes: data.scan_interval_minutes,
         is_cross_margin: data.is_cross_margin,
-        show_in_competition: data.show_in_competition,
       }
 
       await api.updateTrader(editingTrader.trader_id, request)
@@ -303,19 +302,6 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
       await mutateTraders()
     } catch (error) {
       console.error('Failed to toggle trader:', error)
-      toast.error(t('operationFailed', language))
-    }
-  }
-
-  const handleToggleCompetition = async (traderId: string, currentShowInCompetition: boolean) => {
-    try {
-      const newValue = !currentShowInCompetition
-      await api.toggleCompetition(traderId, newValue)
-      toast.success(newValue ? t('aiTradersToast.showInCompetition', language) : t('aiTradersToast.hideInCompetition', language))
-
-      await mutateTraders()
-    } catch (error) {
-      console.error('Failed to toggle competition visibility:', error)
       toast.error(t('operationFailed', language))
     }
   }
@@ -705,7 +691,6 @@ export function AITradersPage({ onTraderSelect }: AITradersPageProps) {
           onNavigate={(path) => navigate(path)}
           onEditTrader={handleEditTrader}
           onToggleTrader={handleToggleTrader}
-          onToggleCompetition={handleToggleCompetition}
           onDeleteTrader={handleDeleteTrader}
           onToggleTraderAddress={toggleTraderAddressVisibility}
           onCopyAddress={handleCopyAddress}

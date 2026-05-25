@@ -1,86 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Copy, RefreshCw, Shield, Wallet, X } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
-import { toast } from 'sonner'
-import { useLanguage } from '../contexts/LanguageContext'
-import { api } from '../lib/api'
-import type { BeginnerOnboardingResponse } from '../types'
-import {
-  setBeginnerWalletAddress,
-  markBeginnerOnboardingCompleted,
-} from '../lib/onboarding'
 
 export function BeginnerOnboardingPage() {
-  const { language } = useLanguage()
   const navigate = useNavigate()
-  const [data, setData] = useState<BeginnerOnboardingResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [refreshingBalance, setRefreshingBalance] = useState(false)
-  const hasRequestedRef = useRef(false)
-  const isZh = language === 'zh'
-
-  const loadOnboarding = async (showLoading: boolean) => {
-    if (showLoading) {
-      setLoading(true)
-    } else {
-      setRefreshingBalance(true)
-    }
-
-    setError('')
-    try {
-      const result = await api.prepareBeginnerOnboarding()
-      setData(result)
-      setBeginnerWalletAddress(result.address)
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : isZh
-            ? '新手钱包准备失败'
-            : 'Failed to prepare beginner wallet'
-      )
-    } finally {
-      if (showLoading) {
-        setLoading(false)
-      } else {
-        setRefreshingBalance(false)
-      }
-    }
-  }
 
   useEffect(() => {
-    if (hasRequestedRef.current) {
-      return
-    }
-    hasRequestedRef.current = true
-    void loadOnboarding(true)
-  }, [])
+    navigate('/traders', { replace: true })
+  }, [navigate])
 
-  const noticeText = useMemo(
-    () =>
-      isZh
-        ? '此钱包仅用于大模型调用费用，不会自动充到交易所。私钥丢失后无法恢复，只充 Base 链 USDC。'
-        : 'This wallet only pays for model calls. It does not fund your exchange automatically. The private key cannot be recovered, and you should only deposit Base USDC.',
-    [isZh]
-  )
+  return null
+}
 
-  const copyText = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      toast.success(isZh ? `${label}已复制` : `${label} copied`)
-    } catch {
-      toast.error(isZh ? '复制失败' : 'Copy failed')
-    }
-  }
-
-  const handleContinue = () => {
-    markBeginnerOnboardingCompleted()
-    navigate('/traders')
-  }
-
-  return (
+/*
     <div className="fixed inset-0 z-[80]">
       <div className="absolute inset-0 bg-black/58 backdrop-blur-[2px]" />
       <div className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
@@ -293,3 +224,4 @@ export function BeginnerOnboardingPage() {
     </div>
   )
 }
+*/
