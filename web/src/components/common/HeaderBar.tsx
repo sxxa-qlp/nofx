@@ -160,6 +160,12 @@ export default function HeaderBar({
                   requiresAuth: true,
                 },
                 {
+                  page: 'backtest',
+                  path: ROUTES.backtest,
+                  label: t('backtestNav', language),
+                  requiresAuth: true,
+                },
+                {
                   page: 'competition',
                   path: ROUTES.competition,
                   label: t('realtimeNav', language),
@@ -494,6 +500,12 @@ export default function HeaderBar({
                       page: 'strategy',
                       path: ROUTES.strategy,
                       label: t('strategyNav', language),
+                      requiresAuth: true,
+                    },
+                    {
+                      page: 'backtest',
+                      path: ROUTES.backtest,
+                      label: t('backtestNav', language),
                       requiresAuth: true,
                     },
                     {
