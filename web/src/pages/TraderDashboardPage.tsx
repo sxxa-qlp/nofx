@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { mutate } from 'swr'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { ChartTabs } from '../components/charts/ChartTabs'
 import { DecisionCard } from '../components/trader/DecisionCard'
@@ -9,6 +10,7 @@ import { confirmToast, notify } from '../lib/notify'
 import { formatPrice, formatQuantity } from '../utils/format'
 import { t, type Language } from '../i18n/translations'
 import { LogOut, Loader2, Eye, EyeOff, Copy, Check } from 'lucide-react'
+import { ROUTES } from '../router/paths'
 import { DeepVoidBackground } from '../components/common/DeepVoidBackground'
 import { NofxSelect } from '../components/ui/select'
 import { GridRiskPanel } from '../components/strategy/GridRiskPanel'
@@ -136,6 +138,7 @@ export function TraderDashboardPage({
     onNavigateToTraders,
     exchanges,
 }: TraderDashboardPageProps) {
+    const navigate = useNavigate()
     const [closingPosition, setClosingPosition] = useState<string | null>(null)
     const [selectedChartSymbol, setSelectedChartSymbol] = useState<string | undefined>(undefined)
     const [chartUpdateKey, setChartUpdateKey] = useState<number>(0)
@@ -380,6 +383,14 @@ export function TraderDashboardPage({
                         </h2>
 
                         <div className="flex items-center gap-4">
+                            {selectedTrader && (
+                                <button
+                                    onClick={() => navigate(`${ROUTES.backtest}?trader_id=${encodeURIComponent(selectedTrader.trader_id)}&strategy_id=${encodeURIComponent(selectedTrader.strategy_id || '')}`)}
+                                    className="px-3 py-2 rounded-lg font-semibold transition-all border border-nofx-gold/30 text-nofx-gold hover:bg-nofx-gold/10"
+                                >
+                                    回测 / Backtest
+                                </button>
+                            )}
                             {/* Trader Selector */}
                             {traders && traders.length > 0 && (
                                 <div className="flex items-center gap-2 nofx-glass px-1 py-1 rounded-lg border border-white/5">

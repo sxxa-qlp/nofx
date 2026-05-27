@@ -295,6 +295,12 @@ After activating, create or update a trader with this strategy_id to apply it.`,
 				`:id = EXACT id from GET /api/strategies. Creates a copy with " (copy)" appended to the name.`,
 				s.handleDuplicateStrategy)
 
+			// Backtest MVP
+			s.routeWithSchema(protected, "GET", "/backtests", "List backtest history", `Returns a list of previous backtest run results persisted on disk.`, s.handleListBacktests)
+			s.routeWithSchema(protected, "POST", "/backtests", "Run a backtest dry run", `Body: {"trader_id":"<optional>","strategy_id":"<optional>","symbol":"BTCUSDT","start_time":"<RFC3339>","end_time":"<RFC3339>","decision_timeframe":"15m|1h|4h","replay_timeframes":["15m","1h","4h"],"initial_capital":1000,"taker_fee_rate":0.0004,"slippage_bps":2,"max_cycles":50}
+MVP behavior: validates historical loading and replay timing only; no strategy execution or trade simulation yet.`, s.handleRunBacktest)
+			s.routeWithSchema(protected, "GET", "/backtests/:id", "Get a backtest result by run id", `:id = run_id returned from POST /api/backtests`, s.handleGetBacktest)
+
 			// Data for specified trader (using query parameter ?trader_id=xxx)
 			// IMPORTANT: All ?trader_id= values must be the EXACT "trader_id" field from GET /api/my-traders
 			s.routeWithSchema(protected, "GET", "/status", "Trader running status",

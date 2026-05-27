@@ -3,6 +3,7 @@ package backtest
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -45,15 +46,96 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 
 	result.Summary.Status = RunStatusRunning
 
-	// MVP skeleton only: wiring and validation first.
-	// Replay loop / strategy integration / simulated fills will be added next.
+	symbol := firstSymbol(cfg)
+	if symbol == "" {
+		return nil, fmt.Errorf("at least one symbol is required for dry run")
+	}
+
+	replayTFs := normalizeReplayTimeframes(cfg)
+	windowSizes := normalizeWindowSizes(cfg, replayTFs)
+
+	loaded := make(map[string][]Candle, len(replayTFs))
+	for _, tf := range replayTFs {
+		candles, err := r.deps.DataSource.LoadCandles(ctx, symbol, tf, cfg.StartTime, cfg.EndTime)
+		if err != nil {
+			return nil, fmt.Errorf("load candles %s %s: %w", symbol, tf, err)
+		}
+		loaded[tf] = candles
+	}
+
+	primaryTF := string(cfg.DecisionTF)
+	primary, ok := loaded[primaryTF]
+	if !ok || len(primary) == 0 {
+		return nil, fmt.Errorf("primary timeframe %s has no candles", primaryTF)
+	}
+
+	feed, err := NewReplayFeed(symbol, primaryTF, primary)
+	if err != nil {
+		return nil, err
+	}
+
+	cycles := 0
+	for feed.HasNext() {
+		current, _ := feed.Current()
+		decisionTime := current.CloseTime.UTC()
+		if decisionTime.Before(cfg.StartTime) || decisionTime.After(cfg.EndTime) {
+			feed.Advance()
+			continue
+		}
+
+		cyclePayload := map[string]any{
+			"decision_time": decisionTime,
+			"timeframes":    map[string]any{},
+		}
+
+		for _, tf := range replayTFs {
+			window := closedWindowAt(loaded[tf], decisionTime, windowSizes[tf])
+			if len(window) == 0 {
+				continue
+			}
+			last := window[len(window)-1]
+			cyclePayload["timeframes"].(map[string]any)[tf] = map[string]any{
+				"bars":       len(window),
+				"first_open": window[0].OpenTime,
+				"last_close": last.CloseTime,
+				"last_price": last.Close,
+			}
+		}
+
+		result.Events = append(result.Events, BacktestEvent{
+			Time:    decisionTime,
+			Type:    EventCycleStart,
+			Symbol:  symbol,
+			Message: fmt.Sprintf("dry-run cycle %d", cycles+1),
+			Payload: cyclePayload,
+		})
+
+		result.EquityCurve = append(result.EquityCurve, EquityPoint{
+			Time:          decisionTime,
+			Equity:        cfg.InitialCapital,
+			Available:     cfg.InitialCapital,
+			UnrealizedPnL: 0,
+			RealizedPnL:   0,
+			DrawdownPct:   0,
+			PositionCount: 0,
+		})
+
+		cycles++
+		feed.Advance()
+		if cfg.MaxCycles > 0 && cycles >= cfg.MaxCycles {
+			break
+		}
+	}
+
 	result.Summary.Status = RunStatusCompleted
 	result.Summary.EndingEquity = cfg.InitialCapital
 	result.Summary.TotalReturnPct = 0
 	result.Summary.MaxDrawdownPct = 0
 	result.Summary.Notes = append(result.Summary.Notes,
-		"Backtest MVP skeleton is initialized.",
-		"Replay loop and execution simulation are the next implementation step.",
+		fmt.Sprintf("Dry run completed for %s.", symbol),
+		fmt.Sprintf("Loaded timeframes: %v", replayTFs),
+		fmt.Sprintf("Replay cycles processed: %d", cycles),
+		"No strategy execution yet; this validates historical loading and replay timing.",
 	)
 
 	if r.deps.Writer != nil {
@@ -63,4 +145,70 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	return result, nil
+}
+
+func firstSymbol(cfg Config) string {
+	if len(cfg.Symbols) == 0 {
+		return ""
+	}
+	return cfg.Symbols[0]
+}
+
+func normalizeReplayTimeframes(cfg Config) []string {
+	if len(cfg.ReplayTimeframes) > 0 {
+		seen := map[string]bool{}
+		out := make([]string, 0, len(cfg.ReplayTimeframes))
+		for _, tf := range cfg.ReplayTimeframes {
+			if tf == "" || seen[tf] {
+				continue
+			}
+			seen[tf] = true
+			out = append(out, tf)
+		}
+		sort.Strings(out)
+		return out
+	}
+	return []string{string(cfg.DecisionTF), "1h", "4h"}
+}
+
+func normalizeWindowSizes(cfg Config, timeframes []string) map[string]int {
+	out := map[string]int{}
+	for _, tf := range timeframes {
+		if cfg.WindowSizes != nil {
+			if n, ok := cfg.WindowSizes[tf]; ok && n > 0 {
+				out[tf] = n
+				continue
+			}
+		}
+		switch tf {
+		case "15m":
+			out[tf] = 20
+		case "1h":
+			out[tf] = 20
+		case "4h":
+			out[tf] = 20
+		default:
+			out[tf] = 20
+		}
+	}
+	return out
+}
+
+func closedWindowAt(series []Candle, decisionTime time.Time, maxBars int) []Candle {
+	if len(series) == 0 || maxBars <= 0 {
+		return nil
+	}
+	eligible := make([]Candle, 0, maxBars)
+	for _, c := range series {
+		if !c.CloseTime.After(decisionTime) {
+			eligible = append(eligible, c)
+		}
+	}
+	if len(eligible) == 0 {
+		return nil
+	}
+	if len(eligible) > maxBars {
+		eligible = eligible[len(eligible)-maxBars:]
+	}
+	return eligible
 }

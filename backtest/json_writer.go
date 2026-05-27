@@ -9,9 +9,7 @@ import (
 )
 
 // JSONFileWriter writes a single summary JSON file for MVP.
-type JSONFileWriter struct {
-	Dir string
-}
+type JSONFileWriter struct{ Dir string }
 
 func (w JSONFileWriter) Write(ctx context.Context, result Result) error {
 	_ = ctx
