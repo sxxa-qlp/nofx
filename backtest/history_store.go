@@ -34,6 +34,11 @@ func (s *HistoryStore) Save(ctx context.Context, result Result) error {
 	return os.WriteFile(filepath.Join(s.Dir, result.RunID+".json"), buf, 0o644)
 }
 
+// Write implements ResultWriter so the history store can be used directly by Runner.
+func (s *HistoryStore) Write(ctx context.Context, result Result) error {
+	return s.Save(ctx, result)
+}
+
 func (s *HistoryStore) Get(ctx context.Context, runID string) (*Result, error) {
 	_ = ctx
 	buf, err := os.ReadFile(filepath.Join(s.Dir, runID+".json"))
