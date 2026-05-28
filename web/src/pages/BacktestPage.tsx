@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import { Input } from '../components/ui/input'
 import { NofxSelect } from '../components/ui/select'
+import { useLanguage } from '../contexts/LanguageContext'
 import type { TraderInfo } from '../types'
 import type { BacktestResult, BacktestRunRequest } from '../types/backtest'
 
@@ -19,6 +20,7 @@ function isoDateTimeLocal(d: Date) {
 }
 
 export default function BacktestPage() {
+  const { language } = useLanguage()
   const [searchParams] = useSearchParams()
   const traderIdFromQuery = searchParams.get('trader_id') || ''
   const strategyIdFromQuery = searchParams.get('strategy_id') || ''
@@ -50,6 +52,7 @@ export default function BacktestPage() {
   const [error, setError] = useState<string>('')
 
   const selectedTrader = traders?.find(t => t.trader_id === form.trader_id)
+  const zh = language === 'zh'
 
   const onRun = async () => {
     setError('')
@@ -71,19 +74,19 @@ export default function BacktestPage() {
         <div className="nofx-glass p-6 rounded-lg border border-white/5">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-2xl font-bold text-nofx-text-main">Backtest / 回测实验室</h1>
-              <p className="text-sm text-nofx-text-muted mt-1">MVP: historical loading + replay dry run first, then strategy and execution.</p>
+              <h1 className="text-2xl font-bold text-nofx-text-main">{zh ? '回测实验室 / Backtest Lab' : 'Backtest Lab / 回测实验室'}</h1>
+              <p className="text-sm text-nofx-text-muted mt-1">{zh ? 'MVP：先验证历史数据加载与回放 dry run，再接策略执行。' : 'MVP: validate historical loading and replay dry run first, then wire strategy execution.'}</p>
             </div>
-            <div className="text-xs font-mono text-nofx-text-muted">{selectedTrader ? `Trader: ${selectedTrader.trader_name}` : 'No trader selected'}</div>
+            <div className="text-xs font-mono text-nofx-text-muted">{selectedTrader ? `${zh ? '交易员' : 'Trader'}: ${selectedTrader.trader_name}` : (zh ? '未选择交易员 / No trader selected' : 'No trader selected / 未选择交易员')}</div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-[380px_minmax(0,1fr)] gap-6">
           <div className="nofx-glass p-6 rounded-lg border border-white/5 space-y-4 h-fit">
-            <h2 className="text-lg font-semibold">Run Form</h2>
+            <h2 className="text-lg font-semibold">{zh ? '运行表单 / Run Form' : 'Run Form / 运行表单'}</h2>
 
             <div>
-              <label className="block text-xs text-nofx-text-muted mb-2">Trader</label>
+              <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '交易员 / Trader' : 'Trader / 交易员'}</label>
               <div className="bg-black/30 border border-white/10 rounded px-3 py-2 text-sm">
                 <NofxSelect
                   value={form.trader_id || ''}
@@ -94,13 +97,13 @@ export default function BacktestPage() {
             </div>
 
             <div>
-              <label className="block text-xs text-nofx-text-muted mb-2">Symbol</label>
+              <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '交易对 / Symbol' : 'Symbol / 交易对'}</label>
               <Input value={form.symbol || ''} onChange={(e) => setForm(prev => ({ ...prev, symbol: e.target.value }))} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-nofx-text-muted mb-2">Decision TF</label>
+                <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '决策周期 / Decision TF' : 'Decision TF / 决策周期'}</label>
                 <div className="bg-black/30 border border-white/10 rounded px-3 py-2 text-sm">
                   <NofxSelect
                     value={form.decision_timeframe}
@@ -110,25 +113,25 @@ export default function BacktestPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-nofx-text-muted mb-2">Max Cycles</label>
+                <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '最大周期数 / Max Cycles' : 'Max Cycles / 最大周期数'}</label>
                 <Input type="number" value={form.max_cycles || 0} onChange={(e) => setForm(prev => ({ ...prev, max_cycles: Number(e.target.value) }))} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-nofx-text-muted mb-2">Initial Capital</label>
+                <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '初始资金 / Initial Capital' : 'Initial Capital / 初始资金'}</label>
                 <Input type="number" value={form.initial_capital} onChange={(e) => setForm(prev => ({ ...prev, initial_capital: Number(e.target.value) }))} />
               </div>
               <div>
-                <label className="block text-xs text-nofx-text-muted mb-2">Slippage (bps)</label>
+                <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '滑点 / Slippage (bps)' : 'Slippage (bps) / 滑点'}</label>
                 <Input type="number" value={form.slippage_bps} onChange={(e) => setForm(prev => ({ ...prev, slippage_bps: Number(e.target.value) }))} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-nofx-text-muted mb-2">Start</label>
+                <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '开始时间 / Start' : 'Start / 开始时间'}</label>
                 <Input
                   type="datetime-local"
                   value={isoDateTimeLocal(new Date(form.start_time))}
@@ -136,7 +139,7 @@ export default function BacktestPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-nofx-text-muted mb-2">End</label>
+                <label className="block text-xs text-nofx-text-muted mb-2">{zh ? '结束时间 / End' : 'End / 结束时间'}</label>
                 <Input
                   type="datetime-local"
                   value={isoDateTimeLocal(new Date(form.end_time))}
@@ -150,7 +153,7 @@ export default function BacktestPage() {
               disabled={isRunning}
               className="w-full px-4 py-3 rounded-lg font-semibold transition-all bg-[#F0B90B] text-black hover:brightness-110 disabled:opacity-50"
             >
-              {isRunning ? 'Running…' : 'Run Backtest'}
+              {isRunning ? (zh ? '运行中… / Running…' : 'Running… / 运行中…') : (zh ? '运行回测 / Run Backtest' : 'Run Backtest / 运行回测')}
             </button>
 
             {error ? <div className="text-sm text-red-400">{error}</div> : null}
@@ -158,7 +161,7 @@ export default function BacktestPage() {
 
           <div className="space-y-6 min-w-0">
             <div className="nofx-glass p-6 rounded-lg border border-white/5">
-              <h2 className="text-lg font-semibold mb-4">Summary</h2>
+              <h2 className="text-lg font-semibold mb-4">{zh ? '结果摘要 / Summary' : 'Summary / 结果摘要'}</h2>
               {result ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                   <Metric label="Status" value={result.summary.status} />
@@ -169,12 +172,12 @@ export default function BacktestPage() {
                   <Metric label="Run ID" value={result.run_id} mono />
                 </div>
               ) : (
-                <div className="text-sm text-nofx-text-muted">No result yet.</div>
+                <div className="text-sm text-nofx-text-muted">{zh ? '暂无结果 / No result yet.' : 'No result yet. / 暂无结果'}</div>
               )}
             </div>
 
             <div className="nofx-glass p-6 rounded-lg border border-white/5">
-              <h2 className="text-lg font-semibold mb-4">Replay / Decisions (dry run)</h2>
+              <h2 className="text-lg font-semibold mb-4">{zh ? '回放 / 决策（dry run）' : 'Replay / Decisions (dry run) / 回放决策'}</h2>
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2">
                 {(result?.events || []).map((event, idx) => (
                   <div key={idx} className="rounded border border-white/5 bg-black/20 p-3 text-xs font-mono">
@@ -200,12 +203,12 @@ export default function BacktestPage() {
                     ) : null}
                   </div>
                 ))}
-                {!result?.events?.length ? <div className="text-sm text-nofx-text-muted">No replay events yet.</div> : null}
+                {!result?.events?.length ? <div className="text-sm text-nofx-text-muted">{zh ? '暂无回放事件 / No replay events yet.' : 'No replay events yet. / 暂无回放事件'}</div> : null}
               </div>
             </div>
 
             <div className="nofx-glass p-6 rounded-lg border border-white/5">
-              <h2 className="text-lg font-semibold mb-4">Run History</h2>
+              <h2 className="text-lg font-semibold mb-4">{zh ? '运行历史 / Run History' : 'Run History / 运行历史'}</h2>
               <div className="space-y-3">
                 {(history || []).map((item) => (
                   <div key={item.run_id} className="rounded border border-white/5 bg-black/20 p-3 text-sm flex items-center justify-between gap-4">
@@ -219,7 +222,7 @@ export default function BacktestPage() {
                     </div>
                   </div>
                 ))}
-                {!history?.length ? <div className="text-sm text-nofx-text-muted">No history yet.</div> : null}
+                {!history?.length ? <div className="text-sm text-nofx-text-muted">{zh ? '暂无历史 / No history yet.' : 'No history yet. / 暂无历史'}</div> : null}
               </div>
             </div>
           </div>
