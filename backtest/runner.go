@@ -9,8 +9,9 @@ import (
 
 // RunnerDependencies will be filled in phase-by-phase as the MVP gets wired.
 type RunnerDependencies struct {
-	DataSource DataSource
-	Writer     ResultWriter
+	DataSource        DataSource
+	Writer            ResultWriter
+	DecisionGenerator DecisionGenerator
 }
 
 // Runner orchestrates one backtest run.
@@ -110,6 +111,33 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 			Payload: cyclePayload,
 		})
 
+		if r.deps.DecisionGenerator != nil {
+			decisionPayload, derr := r.deps.DecisionGenerator.Generate(ctx, DecisionInput{
+				Config:       cfg,
+				Cycle:        cycles + 1,
+				Symbol:       symbol,
+				DecisionTime: decisionTime,
+				Windows:      collectWindows(loaded, decisionTime, windowSizes),
+			})
+			if derr != nil {
+				result.Events = append(result.Events, BacktestEvent{
+					Time:    decisionTime,
+					Type:    EventDecision,
+					Symbol:  symbol,
+					Message: fmt.Sprintf("decision generation failed: %v", derr),
+					Payload: map[string]any{"error": derr.Error()},
+				})
+			} else if decisionPayload != nil {
+				result.Events = append(result.Events, BacktestEvent{
+					Time:    decisionTime,
+					Type:    EventDecision,
+					Symbol:  symbol,
+					Message: fmt.Sprintf("decision cycle %d", cycles+1),
+					Payload: decisionPayload,
+				})
+			}
+		}
+
 		result.EquityCurve = append(result.EquityCurve, EquityPoint{
 			Time:          decisionTime,
 			Equity:        cfg.InitialCapital,
@@ -190,6 +218,14 @@ func normalizeWindowSizes(cfg Config, timeframes []string) map[string]int {
 		default:
 			out[tf] = 20
 		}
+	}
+	return out
+}
+
+func collectWindows(all map[string][]Candle, decisionTime time.Time, windowSizes map[string]int) map[string][]Candle {
+	out := make(map[string][]Candle, len(all))
+	for tf, series := range all {
+		out[tf] = closedWindowAt(series, decisionTime, windowSizes[tf])
 	}
 	return out
 }

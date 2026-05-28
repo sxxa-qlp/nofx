@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"nofx/backtest"
+	"nofx/store"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -55,30 +57,49 @@ func (s *Server) handleRunBacktest(c *gin.Context) {
 		decisionTF = backtest.Timeframe15m
 	}
 
+	symbol := defaultIfEmpty(req.Symbol, "BTCUSDT")
 	cfg := backtest.Config{
-		Name:             "mvp-dry-run",
-		TraderID:         req.TraderID,
-		StrategyID:       req.StrategyID,
-		UserID:           userID,
-		Exchange:         "binance",
-		Symbols:          []string{defaultIfEmpty(req.Symbol, "BTCUSDT")},
-		InitialCapital:   defaultFloat(req.InitialCapital, 1000),
-		StartTime:        startTime.UTC(),
-		EndTime:          endTime.UTC(),
-		DecisionTF:       decisionTF,
-		ReplayTimeframes: defaultTimeframes(req.ReplayTimeframes),
-		FillMode:         backtest.FillNextBarOpen,
-		DecisionMode:     backtest.DecisionModeRules,
-		TakerFeeRate:     req.TakerFeeRate,
-		SlippageBps:      req.SlippageBps,
-		MaxCycles:        req.MaxCycles,
-		OutputDir:        backtestResultDir,
+		Name:           "mvp-dry-run",
+		TraderID:       req.TraderID,
+		StrategyID:     req.StrategyID,
+		UserID:         userID,
+		Exchange:       "binance",
+		Symbols:        []string{symbol},
+		InitialCapital: defaultFloat(req.InitialCapital, 1000),
+		StartTime:      startTime.UTC(),
+		EndTime:        endTime.UTC(),
+		DecisionTF:     decisionTF,
+		FillMode:       backtest.FillNextBarOpen,
+		DecisionMode:   backtest.DecisionModeRules,
+		TakerFeeRate:   req.TakerFeeRate,
+		SlippageBps:    req.SlippageBps,
+		MaxCycles:      req.MaxCycles,
+		OutputDir:      backtestResultDir,
+	}
+
+	var decisionGenerator backtest.DecisionGenerator
+	if req.TraderID != "" {
+		fullCfg, ferr := s.store.Trader().GetFullConfig(userID, req.TraderID)
+		if ferr == nil && fullCfg != nil && fullCfg.Strategy != nil {
+			var strategyCfg store.StrategyConfig
+			if err := json.Unmarshal([]byte(fullCfg.Strategy.Config), &strategyCfg); err == nil {
+				if strategyCfg.Indicators.Klines.PrimaryTimeframe != "" {
+					cfg.DecisionTF = backtest.BarTimeframe(strategyCfg.Indicators.Klines.PrimaryTimeframe)
+				}
+				cfg.ReplayTimeframes = pickReplayTimeframes(&strategyCfg, req.ReplayTimeframes)
+				decisionGenerator = newAPIDecisionGenerator(&strategyCfg, buildAIClientFromModel(fullCfg.AIModel), true)
+			}
+		}
+	}
+	if len(cfg.ReplayTimeframes) == 0 {
+		cfg.ReplayTimeframes = defaultTimeframes(req.ReplayTimeframes)
 	}
 
 	history := backtest.NewHistoryStore(backtestResultDir)
 	runner := backtest.NewRunner(backtest.RunnerDependencies{
-		DataSource: backtest.NewCoinankLoader(),
-		Writer:     history,
+		DataSource:        backtest.NewCoinankLoader(),
+		Writer:            history,
+		DecisionGenerator: decisionGenerator,
 	})
 
 	result, err := runner.Run(context.Background(), cfg)
@@ -142,4 +163,14 @@ func defaultTimeframes(v []string) []string {
 		return []string{"15m", "1h", "4h"}
 	}
 	return v
+}
+
+func pickReplayTimeframes(cfg *store.StrategyConfig, fallback []string) []string {
+	if cfg != nil && len(cfg.Indicators.Klines.SelectedTimeframes) > 0 {
+		return cfg.Indicators.Klines.SelectedTimeframes
+	}
+	if len(fallback) > 0 {
+		return fallback
+	}
+	return []string{"15m", "1h", "4h"}
 }
