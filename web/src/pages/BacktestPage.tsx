@@ -164,11 +164,11 @@ export default function BacktestPage() {
               <h2 className="text-lg font-semibold mb-4">{zh ? '结果摘要 / Summary' : 'Summary / 结果摘要'}</h2>
               {result ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                  <Metric label="Status" value={result.summary.status} />
-                  <Metric label="Return" value={`${result.summary.total_return_pct.toFixed(2)}%`} />
-                  <Metric label="Max DD" value={`${result.summary.max_drawdown_pct.toFixed(2)}%`} />
-                  <Metric label="Trades" value={String(result.summary.total_trades)} />
-                  <Metric label="Ending Equity" value={result.summary.ending_equity.toFixed(2)} />
+                  <Metric label={zh ? '状态 / Status' : 'Status / 状态'} value={result.summary.status} />
+                  <Metric label={zh ? '收益 / Return' : 'Return / 收益'} value={`${result.summary.total_return_pct.toFixed(2)}%`} />
+                  <Metric label={zh ? '最大回撤 / Max DD' : 'Max DD / 最大回撤'} value={`${result.summary.max_drawdown_pct.toFixed(2)}%`} />
+                  <Metric label={zh ? '交易数 / Trades' : 'Trades / 交易数'} value={String(result.summary.total_trades)} />
+                  <Metric label={zh ? '结束权益 / Ending Equity' : 'Ending Equity / 结束权益'} value={result.summary.ending_equity.toFixed(2)} />
                   <Metric label="Run ID" value={result.run_id} mono />
                 </div>
               ) : (
@@ -185,7 +185,7 @@ export default function BacktestPage() {
                       <span className="text-[#F0B90B]">{event.type}</span>
                       <span className="text-nofx-text-muted">{event.time}</span>
                     </div>
-                    <div className="mt-2 text-nofx-text-main">{event.message}</div>
+                    <div className="mt-2 text-nofx-text-main">{localizeEventMessage(event.message, zh)}</div>
                     {event.payload?.timeframes ? (
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
                         {Object.entries(event.payload.timeframes).map(([tf, value]) => {
@@ -193,12 +193,22 @@ export default function BacktestPage() {
                           return (
                             <div key={tf} className="rounded bg-white/5 p-2">
                               <div className="text-[#F0B90B] mb-1">{tf}</div>
-                              <div>bars: {v.bars}</div>
-                              <div>last: {v.last_price}</div>
+                              <div>{zh ? `K线数: ${v.bars}` : `Bars: ${v.bars}`}</div>
+                              <div>{zh ? `最新价: ${v.last_price}` : `Last: ${v.last_price}`}</div>
                               <div className="text-nofx-text-muted">{String(v.last_close)}</div>
                             </div>
                           )
                         })}
+                      </div>
+                    ) : null}
+                    {event.payload?.quant_signal ? (
+                      <div className="mt-3 rounded bg-white/5 p-3 text-xs">
+                        <div className="font-semibold mb-2 text-[#F0B90B]">{zh ? '量化信号 / Quant Signal' : 'Quant Signal / 量化信号'}</div>
+                        <div>{zh ? `市场状态: ${event.payload.quant_signal.regime}` : `Regime: ${event.payload.quant_signal.regime}`}</div>
+                        <div>{zh ? `多头分数: ${Number(event.payload.quant_signal.long_score).toFixed(4)}` : `Long Score: ${Number(event.payload.quant_signal.long_score).toFixed(4)}`}</div>
+                        <div>{zh ? `空头分数: ${Number(event.payload.quant_signal.short_score).toFixed(4)}` : `Short Score: ${Number(event.payload.quant_signal.short_score).toFixed(4)}`}</div>
+                        <div>{zh ? `置信度: ${Number(event.payload.quant_signal.confidence).toFixed(4)}` : `Confidence: ${Number(event.payload.quant_signal.confidence).toFixed(4)}`}</div>
+                        <div>{zh ? `偏向动作: ${event.payload.quant_signal.action_bias}` : `Action Bias: ${event.payload.quant_signal.action_bias}`}</div>
                       </div>
                     ) : null}
                   </div>
@@ -239,4 +249,21 @@ function Metric({ label, value, mono }: { label: string; value: string; mono?: b
       <div className={`${mono ? 'font-mono' : ''} text-nofx-text-main font-semibold break-all`}>{value}</div>
     </div>
   )
+}
+
+function localizeEventMessage(message: string, zh: boolean) {
+  if (!message) return message
+  if (message.startsWith('dry-run cycle')) {
+    const n = message.replace('dry-run cycle ', '')
+    return zh ? `回放周期 ${n}` : `Dry-run cycle ${n}`
+  }
+  if (message.startsWith('quant signal cycle')) {
+    const n = message.replace('quant signal cycle ', '')
+    return zh ? `量化信号周期 ${n}` : `Quant signal cycle ${n}`
+  }
+  if (message.startsWith('decision cycle')) {
+    const n = message.replace('decision cycle ', '')
+    return zh ? `决策周期 ${n}` : `Decision cycle ${n}`
+  }
+  return message
 }
