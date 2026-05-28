@@ -15,17 +15,18 @@ import (
 const backtestResultDir = "data/backtests"
 
 type backtestRequest struct {
-	TraderID         string   `json:"trader_id"`
-	StrategyID       string   `json:"strategy_id"`
-	Symbol           string   `json:"symbol"`
-	StartTime        string   `json:"start_time"`
-	EndTime          string   `json:"end_time"`
-	DecisionTF       string   `json:"decision_timeframe"`
-	ReplayTimeframes []string `json:"replay_timeframes"`
-	InitialCapital   float64  `json:"initial_capital"`
-	TakerFeeRate     float64  `json:"taker_fee_rate"`
-	SlippageBps      float64  `json:"slippage_bps"`
-	MaxCycles        int      `json:"max_cycles"`
+	TraderID           string   `json:"trader_id"`
+	StrategyID         string   `json:"strategy_id"`
+	Symbol             string   `json:"symbol"`
+	StartTime          string   `json:"start_time"`
+	EndTime            string   `json:"end_time"`
+	DecisionTF         string   `json:"decision_timeframe"`
+	ReplayTimeframes   []string `json:"replay_timeframes"`
+	InitialCapital     float64  `json:"initial_capital"`
+	TakerFeeRate       float64  `json:"taker_fee_rate"`
+	SlippageBps        float64  `json:"slippage_bps"`
+	MaxCycles          int      `json:"max_cycles"`
+	RunRealAIAllCycles bool     `json:"run_real_ai_all_cycles"`
 }
 
 func (s *Server) handleRunBacktest(c *gin.Context) {
@@ -87,7 +88,8 @@ func (s *Server) handleRunBacktest(c *gin.Context) {
 					cfg.DecisionTF = backtest.BarTimeframe(strategyCfg.Indicators.Klines.PrimaryTimeframe)
 				}
 				cfg.ReplayTimeframes = pickReplayTimeframes(&strategyCfg, req.ReplayTimeframes)
-				decisionGenerator = newAPIDecisionGenerator(&strategyCfg, buildAIClientFromModel(fullCfg.AIModel), true)
+				ensureQuantFeatures(&strategyCfg)
+				decisionGenerator = newAPIDecisionGenerator(&strategyCfg, buildAIClientFromModel(fullCfg.AIModel), true, req.RunRealAIAllCycles)
 			}
 		}
 	}
@@ -163,6 +165,39 @@ func defaultTimeframes(v []string) []string {
 		return []string{"15m", "1h", "4h"}
 	}
 	return v
+}
+
+func ensureQuantFeatures(cfg *store.StrategyConfig) {
+	if cfg == nil {
+		return
+	}
+	if cfg.Indicators.NofxOSAPIKey == "" {
+		cfg.Indicators.NofxOSAPIKey = store.GetDefaultStrategyConfig("zh").Indicators.NofxOSAPIKey
+	}
+	cfg.Indicators.EnableQuantData = true
+	cfg.Indicators.EnableQuantOI = true
+	cfg.Indicators.EnableQuantNetflow = true
+	cfg.Indicators.EnableOIRanking = true
+	cfg.Indicators.EnableNetFlowRanking = true
+	cfg.Indicators.EnablePriceRanking = true
+	if cfg.Indicators.OIRankingDuration == "" {
+		cfg.Indicators.OIRankingDuration = "1h"
+	}
+	if cfg.Indicators.NetFlowRankingDuration == "" {
+		cfg.Indicators.NetFlowRankingDuration = "1h"
+	}
+	if cfg.Indicators.PriceRankingDuration == "" {
+		cfg.Indicators.PriceRankingDuration = "1h,4h,24h"
+	}
+	if cfg.Indicators.OIRankingLimit <= 0 {
+		cfg.Indicators.OIRankingLimit = 10
+	}
+	if cfg.Indicators.NetFlowRankingLimit <= 0 {
+		cfg.Indicators.NetFlowRankingLimit = 10
+	}
+	if cfg.Indicators.PriceRankingLimit <= 0 {
+		cfg.Indicators.PriceRankingLimit = 10
+	}
 }
 
 func pickReplayTimeframes(cfg *store.StrategyConfig, fallback []string) []string {

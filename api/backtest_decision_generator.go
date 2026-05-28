@@ -21,13 +21,17 @@ type apiBacktestDecisionGenerator struct {
 	variant     string
 }
 
-func newAPIDecisionGenerator(strategyCfg *store.StrategyConfig, aiClient mcp.AIClient, runRealAI bool) *apiBacktestDecisionGenerator {
+func newAPIDecisionGenerator(strategyCfg *store.StrategyConfig, aiClient mcp.AIClient, runRealAI bool, runAllCycles bool) *apiBacktestDecisionGenerator {
 	engine := kernel.NewStrategyEngine(strategyCfg)
+	maxCycles := 1
+	if runAllCycles {
+		maxCycles = 1000000
+	}
 	return &apiBacktestDecisionGenerator{
 		engine:      engine,
 		aiClient:    aiClient,
 		runRealAI:   runRealAI,
-		maxAICycles: 1,
+		maxAICycles: maxCycles,
 		variant:     "balanced",
 	}
 }

@@ -75,6 +75,7 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 		return nil, err
 	}
 
+	execEngine := NewSimExecutionEngine(cfg.InitialCapital, cfg.TakerFeeRate)
 	cycles := 0
 	for feed.HasNext() {
 		current, _ := feed.Current()
@@ -111,6 +112,7 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 			Payload: cyclePayload,
 		})
 
+		var decisionPayload map[string]any
 		if r.deps.DecisionGenerator != nil {
 			decisionPayload, derr := r.deps.DecisionGenerator.Generate(ctx, DecisionInput{
 				Config:       cfg,
@@ -147,15 +149,28 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 			}
 		}
 
-		result.EquityCurve = append(result.EquityCurve, EquityPoint{
-			Time:          decisionTime,
-			Equity:        cfg.InitialCapital,
-			Available:     cfg.InitialCapital,
-			UnrealizedPnL: 0,
-			RealizedPnL:   0,
-			DrawdownPct:   0,
-			PositionCount: 0,
-		})
+		if decisionPayload != nil {
+			if nextOpen, nerr := nextBarOpen(primary, decisionTime); nerr == nil {
+				if trades, terr := execEngine.Apply(decisionPayload, decisionTime, nextOpen); terr == nil {
+					for _, tr := range trades {
+						result.Trades = append(result.Trades, tr)
+						result.Events = append(result.Events, BacktestEvent{Time: decisionTime, Type: EventOrderFilled, Symbol: tr.Symbol, Message: fmt.Sprintf("simulated close %s", tr.Side), Payload: map[string]any{"trade": tr}})
+					}
+				}
+			}
+		}
+		nextPrice := current.Close
+		if eq, upnl, posCount := execEngine.MarkToMarket(nextPrice); true {
+			result.EquityCurve = append(result.EquityCurve, EquityPoint{
+				Time:          decisionTime,
+				Equity:        eq,
+				Available:     execEngine.Cash,
+				UnrealizedPnL: upnl,
+				RealizedPnL:   execEngine.Cash - execEngine.InitialCapital,
+				DrawdownPct:   execEngine.drawdownPct(),
+				PositionCount: posCount,
+			})
+		}
 
 		cycles++
 		feed.Advance()
@@ -165,9 +180,25 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 
 	result.Summary.Status = RunStatusCompleted
-	result.Summary.EndingEquity = cfg.InitialCapital
-	result.Summary.TotalReturnPct = 0
-	result.Summary.MaxDrawdownPct = 0
+	result.Summary.EndingEquity = execEngine.LastEquity
+	if cfg.InitialCapital > 0 {
+		result.Summary.TotalReturnPct = (execEngine.LastEquity - cfg.InitialCapital) / cfg.InitialCapital * 100
+	}
+	result.Summary.MaxDrawdownPct = execEngine.drawdownPct()
+	result.Summary.TotalTrades = len(result.Trades)
+	wins := 0
+	totalFees := 0.0
+	for _, tr := range result.Trades {
+		if tr.RealizedPnL > 0 {
+			wins++
+		}
+		totalFees += tr.Fee
+	}
+	result.Summary.WinningTrades = wins
+	if len(result.Trades) > 0 {
+		result.Summary.WinRatePct = float64(wins) / float64(len(result.Trades)) * 100
+	}
+	result.Summary.TotalFees = totalFees
 	result.Summary.Notes = append(result.Summary.Notes,
 		fmt.Sprintf("Dry run completed for %s.", symbol),
 		fmt.Sprintf("Loaded timeframes: %v", replayTFs),
