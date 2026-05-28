@@ -200,10 +200,10 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 	}
 	result.Summary.TotalFees = totalFees
 	result.Summary.Notes = append(result.Summary.Notes,
-		fmt.Sprintf("Dry run completed for %s.", symbol),
+		fmt.Sprintf("Backtest run completed for %s.", symbol),
 		fmt.Sprintf("Loaded timeframes: %v", replayTFs),
 		fmt.Sprintf("Replay cycles processed: %d", cycles),
-		"No strategy execution yet; this validates historical loading and replay timing.",
+		fmt.Sprintf("Simulated execution enabled; generated %d trades.", len(result.Trades)),
 	)
 
 	if r.deps.Writer != nil {
