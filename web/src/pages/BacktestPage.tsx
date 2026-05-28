@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { useSearchParams } from 'react-router-dom'
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { api } from '../lib/api'
 import { Input } from '../components/ui/input'
 import { NofxSelect } from '../components/ui/select'
@@ -52,9 +53,12 @@ export default function BacktestPage() {
   const [isRunning, setIsRunning] = useState(false)
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [error, setError] = useState<string>('')
+  const [selectedEventIndex, setSelectedEventIndex] = useState<number>(0)
 
   const selectedTrader = traders?.find(t => t.trader_id === form.trader_id)
   const zh = language === 'zh'
+  const cycleEvents = (result?.events || []).filter((e) => e.type === 'cycle_start')
+  const selectedCycleEvent = cycleEvents[selectedEventIndex] || cycleEvents[0]
 
   const onRun = async () => {
     setError('')
@@ -62,6 +66,7 @@ export default function BacktestPage() {
     try {
       const res = await api.runBacktest(form)
       setResult(res)
+      setSelectedEventIndex(0)
       await mutateHistory()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to run backtest')
@@ -199,6 +204,29 @@ export default function BacktestPage() {
 
             <div className="nofx-glass p-6 rounded-lg border border-white/5">
               <h2 className="text-lg font-semibold mb-4">{zh ? '回放 / 决策（dry run）' : 'Replay / Decisions (dry run) / 回放决策'}</h2>
+              <div className="mb-4 rounded border border-white/10 bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                  <div className="text-sm font-semibold text-nofx-text-main">{zh ? '输入 Bar 可视化 / Input Bar Visualization' : 'Input Bar Visualization / 输入 Bar 可视化'}</div>
+                  {cycleEvents.length > 0 && (
+                    <div className="bg-black/30 border border-white/10 rounded px-3 py-2 text-sm min-w-[180px]">
+                      <NofxSelect
+                        value={selectedEventIndex}
+                        onChange={(value) => setSelectedEventIndex(Number(value))}
+                        options={cycleEvents.map((e, idx) => ({ value: idx, label: zh ? `周期 ${idx + 1}` : `Cycle ${idx + 1}` }))}
+                      />
+                    </div>
+                  )}
+                </div>
+                {selectedCycleEvent?.payload?.timeframes ? (
+                  <div className="space-y-4">
+                    {Object.entries(selectedCycleEvent.payload.timeframes).map(([tf, value]) => (
+                      <TimeframeBarsCard key={tf} timeframe={tf} value={value as any} zh={zh} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-nofx-text-muted">{zh ? '暂无 bar 数据 / No bar data yet.' : 'No bar data yet. / 暂无 bar 数据'}</div>
+                )}
+              </div>
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2">
                 {(result?.events || []).map((event, idx) => (
                   <div key={idx} className="rounded border border-white/5 bg-black/20 p-3 text-xs font-mono">
@@ -268,6 +296,63 @@ function Metric({ label, value, mono }: { label: string; value: string; mono?: b
     <div className="rounded border border-white/5 bg-black/20 p-3">
       <div className="text-xs text-nofx-text-muted mb-1">{label}</div>
       <div className={`${mono ? 'font-mono' : ''} text-nofx-text-main font-semibold break-all`}>{value}</div>
+    </div>
+  )
+}
+
+function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value: any; zh: boolean }) {
+  const candles = (value?.candles || []).map((c: any) => ({
+    time: String(c.close_time).slice(11, 16),
+    open: Number(c.open),
+    high: Number(c.high),
+    low: Number(c.low),
+    close: Number(c.close),
+    volume: Number(c.volume),
+  }))
+
+  return (
+    <div className="rounded border border-white/10 bg-white/5 p-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div className="text-[#F0B90B] font-semibold">{timeframe}</div>
+        <div className="text-xs text-nofx-text-muted">{zh ? `K线数: ${value?.bars ?? 0} / 最新价: ${value?.last_price ?? '-'}` : `Bars: ${value?.bars ?? 0} / Last: ${value?.last_price ?? '-'}`}</div>
+      </div>
+      <div className="h-48 w-full mb-3">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={candles}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#2B3139" />
+            <XAxis dataKey="time" stroke="#848E9C" />
+            <YAxis stroke="#848E9C" domain={['auto', 'auto']} />
+            <Tooltip />
+            <Line type="monotone" dataKey="close" stroke="#F0B90B" dot={false} strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs font-mono">
+          <thead>
+            <tr className="text-nofx-text-muted border-b border-white/10">
+              <th className="text-left py-1">Time</th>
+              <th className="text-right py-1">Open</th>
+              <th className="text-right py-1">High</th>
+              <th className="text-right py-1">Low</th>
+              <th className="text-right py-1">Close</th>
+              <th className="text-right py-1">Vol</th>
+            </tr>
+          </thead>
+          <tbody>
+            {candles.map((c: any, idx: number) => (
+              <tr key={idx} className="border-b border-white/5 last:border-0">
+                <td className="py-1">{c.time}</td>
+                <td className="py-1 text-right">{c.open.toFixed(2)}</td>
+                <td className="py-1 text-right">{c.high.toFixed(2)}</td>
+                <td className="py-1 text-right">{c.low.toFixed(2)}</td>
+                <td className="py-1 text-right">{c.close.toFixed(2)}</td>
+                <td className="py-1 text-right">{c.volume.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

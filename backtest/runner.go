@@ -96,11 +96,24 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 				continue
 			}
 			last := window[len(window)-1]
+			candles := make([]map[string]any, 0, len(window))
+			for _, c := range window {
+				candles = append(candles, map[string]any{
+					"open_time":  c.OpenTime,
+					"close_time": c.CloseTime,
+					"open":       c.Open,
+					"high":       c.High,
+					"low":        c.Low,
+					"close":      c.Close,
+					"volume":     c.Volume,
+				})
+			}
 			cyclePayload["timeframes"].(map[string]any)[tf] = map[string]any{
 				"bars":       len(window),
 				"first_open": window[0].OpenTime,
 				"last_close": last.CloseTime,
 				"last_price": last.Close,
+				"candles":    candles,
 			}
 		}
 
