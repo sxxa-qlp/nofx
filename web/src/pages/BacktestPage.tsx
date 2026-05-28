@@ -251,8 +251,8 @@ function Metric({ label, value, mono }: { label: string; value: string; mono?: b
   )
 }
 
-function localizeEventMessage(message: string, zh: boolean) {
-  if (!message) return message
+function localizeEventMessage(message: string | undefined, zh: boolean) {
+  if (!message) return ''
   if (message.startsWith('dry-run cycle')) {
     const n = message.replace('dry-run cycle ', '')
     return zh ? `回放周期 ${n}` : `Dry-run cycle ${n}`
