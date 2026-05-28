@@ -42,6 +42,7 @@ type BacktestEventType string
 
 const (
 	EventCycleStart    BacktestEventType = "cycle_start"
+	EventQuantSignal   BacktestEventType = "quant_signal"
 	EventDecision      BacktestEventType = "decision"
 	EventOrderFilled   BacktestEventType = "order_filled"
 	EventPositionClose BacktestEventType = "position_close"

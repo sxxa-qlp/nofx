@@ -7,6 +7,7 @@ import (
 	"nofx/kernel"
 	"nofx/market"
 	"nofx/mcp"
+	"nofx/quant"
 	"nofx/store"
 	"strings"
 	"time"
@@ -66,6 +67,10 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 	if err != nil {
 		return nil, err
 	}
+	quantDataMap := g.engine.FetchQuantDataBatch([]string{in.Symbol})
+	oiRankingData := g.engine.FetchOIRankingData()
+	netFlowRankingData := g.engine.FetchNetFlowRankingData()
+	priceRankingData := g.engine.FetchPriceRankingData()
 	ctxObj := &kernel.Context{
 		CurrentTime:    in.DecisionTime.UTC().Format("2006-01-02 15:04:05 UTC"),
 		RuntimeMinutes: 0,
@@ -86,19 +91,36 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 		MarketDataMap: map[string]*market.Data{
 			in.Symbol: mkt,
 		},
-		OITopDataMap: make(map[string]*kernel.OITopData),
-		QuantDataMap: make(map[string]*kernel.QuantData),
+		OITopDataMap:       make(map[string]*kernel.OITopData),
+		QuantDataMap:       quantDataMap,
+		OIRankingData:      oiRankingData,
+		NetFlowRankingData: netFlowRankingData,
+		PriceRankingData:   priceRankingData,
 	}
 
+	signal := quant.BuildSignal(in.Symbol, mkt, quantDataMap[in.Symbol], oiRankingData, netFlowRankingData, priceRankingData)
 	payload := map[string]any{
 		"mode":            "prompt_preview",
 		"symbol":          in.Symbol,
 		"cycle":           in.Cycle,
 		"candidate_count": 1,
+		"quant_signal":    signal,
+		"quant_input": map[string]any{
+			"has_quant_data":      quantDataMap[in.Symbol] != nil,
+			"has_oi_ranking":      oiRankingData != nil,
+			"has_netflow_ranking": netFlowRankingData != nil,
+			"has_price_ranking":   priceRankingData != nil,
+		},
 	}
 
 	systemPrompt := g.engine.BuildSystemPrompt(in.Config.InitialCapital, g.variant)
 	userPrompt := g.engine.BuildUserPrompt(ctxObj)
+	userPrompt += "\n\n## Quant Signal Layer\n"
+	userPrompt += fmt.Sprintf("Regime: %s\n", signal.Regime)
+	userPrompt += fmt.Sprintf("Long Score: %.4f | Short Score: %.4f | Confidence: %.4f | Bias: %s | NoTrade: %v\n", signal.LongScore, signal.ShortScore, signal.Confidence, signal.ActionBias, signal.NoTrade)
+	userPrompt += fmt.Sprintf("Factor Breakdown: trend_long=%.4f trend_short=%.4f momentum_long=%.4f momentum_short=%.4f flow_long=%.4f flow_short=%.4f risk_penalty=%.4f\n", signal.FactorBreakdown.TrendLongScore, signal.FactorBreakdown.TrendShortScore, signal.FactorBreakdown.MomentumLongScore, signal.FactorBreakdown.MomentumShortScore, signal.FactorBreakdown.FlowLongScore, signal.FactorBreakdown.FlowShortScore, signal.FactorBreakdown.RiskPenalty)
+	userPrompt += fmt.Sprintf("Risk Budget: max_position_pct=%.4f max_leverage=%d allow_new_position=%v\n", signal.RiskBudget.MaxPositionPct, signal.RiskBudget.MaxLeverage, signal.RiskBudget.AllowNewPosition)
+	userPrompt += "Treat the quant signal as the primary bias layer. Only override it when you have a strong reason, and explain the override explicitly.\n"
 	payload["system_prompt_preview"] = truncate(systemPrompt, 400)
 	payload["user_prompt_preview"] = truncate(userPrompt, 400)
 	payload["system_prompt_length"] = len(systemPrompt)

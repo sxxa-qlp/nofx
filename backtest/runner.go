@@ -128,6 +128,15 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 					Payload: map[string]any{"error": derr.Error()},
 				})
 			} else if decisionPayload != nil {
+				if qs, ok := decisionPayload["quant_signal"]; ok {
+					result.Events = append(result.Events, BacktestEvent{
+						Time:    decisionTime,
+						Type:    EventQuantSignal,
+						Symbol:  symbol,
+						Message: fmt.Sprintf("quant signal cycle %d", cycles+1),
+						Payload: map[string]any{"quant_signal": qs},
+					})
+				}
 				result.Events = append(result.Events, BacktestEvent{
 					Time:    decisionTime,
 					Type:    EventDecision,
