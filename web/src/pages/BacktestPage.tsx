@@ -45,6 +45,8 @@ export default function BacktestPage() {
     taker_fee_rate: 0.0004,
     slippage_bps: 2,
     max_cycles: 50,
+    run_real_ai_all_cycles: false,
+    use_extended_quant_data: false,
   })
 
   const [isRunning, setIsRunning] = useState(false)
@@ -146,6 +148,25 @@ export default function BacktestPage() {
                   onChange={(e) => setForm(prev => ({ ...prev, end_time: new Date(e.target.value).toISOString() }))}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2 rounded border border-white/10 bg-black/20 p-3 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!form.run_real_ai_all_cycles}
+                  onChange={(e) => setForm(prev => ({ ...prev, run_real_ai_all_cycles: e.target.checked }))}
+                />
+                <span>{zh ? '全周期真实 AI / Run real AI on all cycles' : 'Run real AI on all cycles / 全周期真实 AI'}</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!form.use_extended_quant_data}
+                  onChange={(e) => setForm(prev => ({ ...prev, use_extended_quant_data: e.target.checked }))}
+                />
+                <span>{zh ? '使用扩展量化数据（nofxos）/ Use extended quant data' : 'Use extended quant data (nofxos) / 使用扩展量化数据'}</span>
+              </label>
             </div>
 
             <button

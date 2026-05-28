@@ -10,6 +10,8 @@ export interface BacktestRunRequest {
   taker_fee_rate: number
   slippage_bps: number
   max_cycles?: number
+  run_real_ai_all_cycles?: boolean
+  use_extended_quant_data?: boolean
 }
 
 export interface BacktestSummary {

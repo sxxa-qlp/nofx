@@ -15,18 +15,19 @@ import (
 const backtestResultDir = "data/backtests"
 
 type backtestRequest struct {
-	TraderID           string   `json:"trader_id"`
-	StrategyID         string   `json:"strategy_id"`
-	Symbol             string   `json:"symbol"`
-	StartTime          string   `json:"start_time"`
-	EndTime            string   `json:"end_time"`
-	DecisionTF         string   `json:"decision_timeframe"`
-	ReplayTimeframes   []string `json:"replay_timeframes"`
-	InitialCapital     float64  `json:"initial_capital"`
-	TakerFeeRate       float64  `json:"taker_fee_rate"`
-	SlippageBps        float64  `json:"slippage_bps"`
-	MaxCycles          int      `json:"max_cycles"`
-	RunRealAIAllCycles bool     `json:"run_real_ai_all_cycles"`
+	TraderID             string   `json:"trader_id"`
+	StrategyID           string   `json:"strategy_id"`
+	Symbol               string   `json:"symbol"`
+	StartTime            string   `json:"start_time"`
+	EndTime              string   `json:"end_time"`
+	DecisionTF           string   `json:"decision_timeframe"`
+	ReplayTimeframes     []string `json:"replay_timeframes"`
+	InitialCapital       float64  `json:"initial_capital"`
+	TakerFeeRate         float64  `json:"taker_fee_rate"`
+	SlippageBps          float64  `json:"slippage_bps"`
+	MaxCycles            int      `json:"max_cycles"`
+	RunRealAIAllCycles   bool     `json:"run_real_ai_all_cycles"`
+	UseExtendedQuantData bool     `json:"use_extended_quant_data"`
 }
 
 func (s *Server) handleRunBacktest(c *gin.Context) {
@@ -88,8 +89,10 @@ func (s *Server) handleRunBacktest(c *gin.Context) {
 					cfg.DecisionTF = backtest.BarTimeframe(strategyCfg.Indicators.Klines.PrimaryTimeframe)
 				}
 				cfg.ReplayTimeframes = pickReplayTimeframes(&strategyCfg, req.ReplayTimeframes)
-				ensureQuantFeatures(&strategyCfg)
-				decisionGenerator = newAPIDecisionGenerator(&strategyCfg, buildAIClientFromModel(fullCfg.AIModel), true, req.RunRealAIAllCycles)
+				if req.UseExtendedQuantData {
+					ensureQuantFeatures(&strategyCfg)
+				}
+				decisionGenerator = newAPIDecisionGenerator(&strategyCfg, buildAIClientFromModel(fullCfg.AIModel), true, req.RunRealAIAllCycles, req.UseExtendedQuantData)
 			}
 		}
 	}

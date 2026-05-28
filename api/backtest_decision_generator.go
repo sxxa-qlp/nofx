@@ -7,6 +7,7 @@ import (
 	"nofx/kernel"
 	"nofx/market"
 	"nofx/mcp"
+	"nofx/provider/nofxos"
 	"nofx/quant"
 	"nofx/store"
 	"strings"
@@ -14,25 +15,27 @@ import (
 )
 
 type apiBacktestDecisionGenerator struct {
-	engine      *kernel.StrategyEngine
-	aiClient    mcp.AIClient
-	runRealAI   bool
-	maxAICycles int
-	variant     string
+	engine           *kernel.StrategyEngine
+	aiClient         mcp.AIClient
+	runRealAI        bool
+	maxAICycles      int
+	variant          string
+	useExtendedQuant bool
 }
 
-func newAPIDecisionGenerator(strategyCfg *store.StrategyConfig, aiClient mcp.AIClient, runRealAI bool, runAllCycles bool) *apiBacktestDecisionGenerator {
+func newAPIDecisionGenerator(strategyCfg *store.StrategyConfig, aiClient mcp.AIClient, runRealAI bool, runAllCycles bool, useExtendedQuant bool) *apiBacktestDecisionGenerator {
 	engine := kernel.NewStrategyEngine(strategyCfg)
 	maxCycles := 1
 	if runAllCycles {
 		maxCycles = 1000000
 	}
 	return &apiBacktestDecisionGenerator{
-		engine:      engine,
-		aiClient:    aiClient,
-		runRealAI:   runRealAI,
-		maxAICycles: maxCycles,
-		variant:     "balanced",
+		engine:           engine,
+		aiClient:         aiClient,
+		runRealAI:        runRealAI,
+		maxAICycles:      maxCycles,
+		variant:          "balanced",
+		useExtendedQuant: useExtendedQuant,
 	}
 }
 
@@ -71,10 +74,16 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 	if err != nil {
 		return nil, err
 	}
-	quantDataMap := g.engine.FetchQuantDataBatch([]string{in.Symbol})
-	oiRankingData := g.engine.FetchOIRankingData()
-	netFlowRankingData := g.engine.FetchNetFlowRankingData()
-	priceRankingData := g.engine.FetchPriceRankingData()
+	quantDataMap := map[string]*kernel.QuantData{}
+	var oiRankingData interface{}
+	var netFlowRankingData interface{}
+	var priceRankingData interface{}
+	if g.useExtendedQuant {
+		quantDataMap = g.engine.FetchQuantDataBatch([]string{in.Symbol})
+		oiRankingData = g.engine.FetchOIRankingData()
+		netFlowRankingData = g.engine.FetchNetFlowRankingData()
+		priceRankingData = g.engine.FetchPriceRankingData()
+	}
 	ctxObj := &kernel.Context{
 		CurrentTime:    in.DecisionTime.UTC().Format("2006-01-02 15:04:05 UTC"),
 		RuntimeMinutes: 0,
@@ -95,14 +104,28 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 		MarketDataMap: map[string]*market.Data{
 			in.Symbol: mkt,
 		},
-		OITopDataMap:       make(map[string]*kernel.OITopData),
-		QuantDataMap:       quantDataMap,
-		OIRankingData:      oiRankingData,
-		NetFlowRankingData: netFlowRankingData,
-		PriceRankingData:   priceRankingData,
+		OITopDataMap: make(map[string]*kernel.OITopData),
+	}
+	if g.useExtendedQuant {
+		ctxObj.QuantDataMap = quantDataMap
+		ctxObj.OIRankingData = oiRankingData.(*nofxos.OIRankingData)
+		ctxObj.NetFlowRankingData = netFlowRankingData.(*nofxos.NetFlowRankingData)
+		ctxObj.PriceRankingData = priceRankingData.(*nofxos.PriceRankingData)
 	}
 
-	signal := quant.BuildSignal(in.Symbol, mkt, quantDataMap[in.Symbol], oiRankingData, netFlowRankingData, priceRankingData)
+	var qd *kernel.QuantData
+	if quantDataMap != nil {
+		qd = quantDataMap[in.Symbol]
+	}
+	var oiR *nofxos.OIRankingData
+	var nfR *nofxos.NetFlowRankingData
+	var prR *nofxos.PriceRankingData
+	if g.useExtendedQuant {
+		oiR, _ = oiRankingData.(*nofxos.OIRankingData)
+		nfR, _ = netFlowRankingData.(*nofxos.NetFlowRankingData)
+		prR, _ = priceRankingData.(*nofxos.PriceRankingData)
+	}
+	signal := quant.BuildSignal(in.Symbol, mkt, qd, oiR, nfR, prR)
 	payload := map[string]any{
 		"mode":            "prompt_preview",
 		"symbol":          in.Symbol,
@@ -110,19 +133,20 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 		"candidate_count": 1,
 		"quant_signal":    signal,
 		"strategy_quant_flags": map[string]any{
-			"enable_quant_data":      cfg.Indicators.EnableQuantData,
-			"enable_quant_oi":        cfg.Indicators.EnableQuantOI,
-			"enable_quant_netflow":   cfg.Indicators.EnableQuantNetflow,
-			"enable_oi_ranking":      cfg.Indicators.EnableOIRanking,
-			"enable_netflow_ranking": cfg.Indicators.EnableNetFlowRanking,
-			"enable_price_ranking":   cfg.Indicators.EnablePriceRanking,
-			"nofxos_api_key_present": cfg.Indicators.NofxOSAPIKey != "",
+			"use_extended_quant_data": reqBool(g.useExtendedQuant),
+			"enable_quant_data":       cfg.Indicators.EnableQuantData,
+			"enable_quant_oi":         cfg.Indicators.EnableQuantOI,
+			"enable_quant_netflow":    cfg.Indicators.EnableQuantNetflow,
+			"enable_oi_ranking":       cfg.Indicators.EnableOIRanking,
+			"enable_netflow_ranking":  cfg.Indicators.EnableNetFlowRanking,
+			"enable_price_ranking":    cfg.Indicators.EnablePriceRanking,
+			"nofxos_api_key_present":  cfg.Indicators.NofxOSAPIKey != "",
 		},
 		"quant_input": map[string]any{
-			"has_quant_data":      quantDataMap[in.Symbol] != nil,
-			"has_oi_ranking":      oiRankingData != nil,
-			"has_netflow_ranking": netFlowRankingData != nil,
-			"has_price_ranking":   priceRankingData != nil,
+			"has_quant_data":      qd != nil,
+			"has_oi_ranking":      oiR != nil,
+			"has_netflow_ranking": nfR != nil,
+			"has_price_ranking":   prR != nil,
 		},
 	}
 
@@ -182,6 +206,8 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "..."
 }
+
+func reqBool(v bool) bool { return v }
 
 func buildAIClientFromModel(model *store.AIModel) mcp.AIClient {
 	if model == nil || !model.Enabled || model.APIKey == "" {
