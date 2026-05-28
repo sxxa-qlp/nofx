@@ -105,6 +105,15 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 		"cycle":           in.Cycle,
 		"candidate_count": 1,
 		"quant_signal":    signal,
+		"strategy_quant_flags": map[string]any{
+			"enable_quant_data":      cfg.Indicators.EnableQuantData,
+			"enable_quant_oi":        cfg.Indicators.EnableQuantOI,
+			"enable_quant_netflow":   cfg.Indicators.EnableQuantNetflow,
+			"enable_oi_ranking":      cfg.Indicators.EnableOIRanking,
+			"enable_netflow_ranking": cfg.Indicators.EnableNetFlowRanking,
+			"enable_price_ranking":   cfg.Indicators.EnablePriceRanking,
+			"nofxos_api_key_present": cfg.Indicators.NofxOSAPIKey != "",
+		},
 		"quant_input": map[string]any{
 			"has_quant_data":      quantDataMap[in.Symbol] != nil,
 			"has_oi_ranking":      oiRankingData != nil,
