@@ -212,7 +212,7 @@ export default function BacktestPage() {
                       <NofxSelect
                         value={selectedEventIndex}
                         onChange={(value) => setSelectedEventIndex(Number(value))}
-                        options={cycleEvents.map((e, idx) => ({ value: idx, label: zh ? `周期 ${idx + 1}` : `Cycle ${idx + 1}` }))}
+                        options={cycleEvents.map((_, idx) => ({ value: idx, label: zh ? `周期 ${idx + 1}` : `Cycle ${idx + 1}` }))}
                       />
                     </div>
                   )}
