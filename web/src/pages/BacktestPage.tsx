@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import { useSearchParams } from 'react-router-dom'
-import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts'
+import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi, type UTCTimestamp, type CandlestickData } from 'lightweight-charts'
 import { api } from '../lib/api'
 import { Input } from '../components/ui/input'
 import { NofxSelect } from '../components/ui/select'
@@ -305,7 +305,7 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const candles = (value?.candles || []).map((c: any) => ({
+  const candles: Array<CandlestickData<UTCTimestamp> & { label: string; volume: number }> = (value?.candles || []).map((c: any) => ({
     time: Math.floor(new Date(c.open_time).getTime() / 1000) as UTCTimestamp,
     label: String(c.close_time).slice(11, 16),
     open: Number(c.open),
@@ -338,7 +338,14 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
       wickUpColor: '#0ECB81',
       wickDownColor: '#F6465D',
     })
-    series.setData(candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })))
+    const chartData: CandlestickData<UTCTimestamp>[] = candles.map((c) => ({
+      time: c.time,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }))
+    series.setData(chartData)
     chart.timeScale().fitContent()
     chartRef.current = chart
     seriesRef.current = series
