@@ -166,8 +166,14 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 	if g.runRealAI && g.aiClient != nil && in.Cycle <= g.maxAICycles {
 		fd, err := kernel.GetFullDecisionWithStrategy(ctxObj, g.aiClient, g.engine, g.variant)
 		if err != nil {
-			payload["mode"] = "ai_error"
+			payload["mode"] = "ai_fallback_wait"
 			payload["ai_error"] = err.Error()
+			payload["decisions"] = []map[string]any{{
+				"symbol":     in.Symbol,
+				"action":     "wait",
+				"confidence": 0,
+				"reasoning":  fmt.Sprintf("AI unavailable, fallback to wait: %v", err),
+			}}
 			return payload, nil
 		}
 		payload["mode"] = "ai_decision"
