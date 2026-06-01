@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import useSWR from 'swr'
 import { useSearchParams } from 'react-router-dom'
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
+import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts'
 import { api } from '../lib/api'
 import { Input } from '../components/ui/input'
 import { NofxSelect } from '../components/ui/select'
@@ -301,8 +301,13 @@ function Metric({ label, value, mono }: { label: string; value: string; mono?: b
 }
 
 function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value: any; zh: boolean }) {
+  const chartRef = useRef<IChartApi | null>(null)
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
   const candles = (value?.candles || []).map((c: any) => ({
-    time: String(c.close_time).slice(11, 16),
+    time: Math.floor(new Date(c.open_time).getTime() / 1000) as UTCTimestamp,
+    label: String(c.close_time).slice(11, 16),
     open: Number(c.open),
     high: Number(c.high),
     low: Number(c.low),
@@ -310,23 +315,52 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
     volume: Number(c.volume),
   }))
 
+  useEffect(() => {
+    if (!containerRef.current) return
+    if (chartRef.current) {
+      chartRef.current.remove()
+      chartRef.current = null
+      seriesRef.current = null
+    }
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth || 600,
+      height: 220,
+      layout: { background: { color: 'transparent' }, textColor: '#848E9C' },
+      grid: { vertLines: { color: '#2B3139' }, horzLines: { color: '#2B3139' } },
+      rightPriceScale: { borderColor: '#2B3139' },
+      timeScale: { borderColor: '#2B3139', timeVisible: true, secondsVisible: false },
+    })
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: '#0ECB81',
+      downColor: '#F6465D',
+      borderUpColor: '#0ECB81',
+      borderDownColor: '#F6465D',
+      wickUpColor: '#0ECB81',
+      wickDownColor: '#F6465D',
+    })
+    series.setData(candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })))
+    chart.timeScale().fitContent()
+    chartRef.current = chart
+    seriesRef.current = series
+    const onResize = () => {
+      if (containerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({ width: containerRef.current.clientWidth || 600 })
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      chart.remove()
+    }
+  }, [JSON.stringify(candles)])
+
   return (
     <div className="rounded border border-white/10 bg-white/5 p-3">
       <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
         <div className="text-[#F0B90B] font-semibold">{timeframe}</div>
         <div className="text-xs text-nofx-text-muted">{zh ? `K线数: ${value?.bars ?? 0} / 最新价: ${value?.last_price ?? '-'}` : `Bars: ${value?.bars ?? 0} / Last: ${value?.last_price ?? '-'}`}</div>
       </div>
-      <div className="h-48 w-full mb-3">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={candles}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#2B3139" />
-            <XAxis dataKey="time" stroke="#848E9C" />
-            <YAxis stroke="#848E9C" domain={['auto', 'auto']} />
-            <Tooltip />
-            <Line type="monotone" dataKey="close" stroke="#F0B90B" dot={false} strokeWidth={2} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <div ref={containerRef} className="h-[220px] w-full mb-3" />
       <div className="overflow-x-auto">
         <table className="w-full text-xs font-mono">
           <thead>
@@ -342,7 +376,7 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
           <tbody>
             {candles.map((c: any, idx: number) => (
               <tr key={idx} className="border-b border-white/5 last:border-0">
-                <td className="py-1">{c.time}</td>
+                <td className="py-1">{c.label}</td>
                 <td className="py-1 text-right">{c.open.toFixed(2)}</td>
                 <td className="py-1 text-right">{c.high.toFixed(2)}</td>
                 <td className="py-1 text-right">{c.low.toFixed(2)}</td>
