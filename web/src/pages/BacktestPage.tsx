@@ -332,7 +332,7 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
       volume: Number(c.volume),
     }))
     .filter((c: CandlestickData<UTCTimestamp> & { label: string; volume: number }) => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close))
-    .sort((a, b) => Number(a.time) - Number(b.time))
+    .sort((a: CandlestickData<UTCTimestamp> & { label: string; volume: number }, b: CandlestickData<UTCTimestamp> & { label: string; volume: number }) => Number(a.time) - Number(b.time))
 
   useEffect(() => {
     if (!containerRef.current) return
