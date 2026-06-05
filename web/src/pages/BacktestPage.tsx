@@ -54,11 +54,17 @@ export default function BacktestPage() {
   const [result, setResult] = useState<BacktestResult | null>(null)
   const [error, setError] = useState<string>('')
   const [selectedEventIndex, setSelectedEventIndex] = useState<number>(0)
+  const [eventDisplayLimit, setEventDisplayLimit] = useState<number>(80)
 
   const selectedTrader = traders?.find(t => t.trader_id === form.trader_id)
   const zh = language === 'zh'
   const cycleEvents = (result?.events || []).filter((e) => e.type === 'cycle_start')
   const selectedCycleEvent = cycleEvents[selectedEventIndex] || cycleEvents[0]
+  const displayedEvents = useMemo(() => {
+    const events = result?.events || []
+    if (events.length <= eventDisplayLimit) return events
+    return events.slice(-eventDisplayLimit)
+  }, [result?.events, eventDisplayLimit])
 
   const onRun = async () => {
     setError('')
@@ -227,8 +233,18 @@ export default function BacktestPage() {
                   <div className="text-sm text-nofx-text-muted">{zh ? '暂无 bar 数据 / No bar data yet.' : 'No bar data yet. / 暂无 bar 数据'}</div>
                 )}
               </div>
+              <div className="mb-3 flex items-center justify-between gap-3 flex-wrap text-xs text-nofx-text-muted">
+                <div>{zh ? `事件总数: ${(result?.events || []).length} / 当前显示最近 ${displayedEvents.length} 条` : `Total events: ${(result?.events || []).length} / showing latest ${displayedEvents.length}`}</div>
+                <div className="bg-black/30 border border-white/10 rounded px-3 py-2 text-sm min-w-[180px]">
+                  <NofxSelect
+                    value={eventDisplayLimit}
+                    onChange={(value) => setEventDisplayLimit(Number(value))}
+                    options={[{ value: 50, label: zh ? '最近 50 条' : 'Latest 50' }, { value: 80, label: zh ? '最近 80 条' : 'Latest 80' }, { value: 120, label: zh ? '最近 120 条' : 'Latest 120' }, { value: 200, label: zh ? '最近 200 条' : 'Latest 200' }]}
+                  />
+                </div>
+              </div>
               <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2">
-                {(result?.events || []).map((event, idx) => (
+                {displayedEvents.map((event, idx) => (
                   <div key={idx} className="rounded border border-white/5 bg-black/20 p-3 text-xs font-mono">
                     <div className="flex justify-between gap-3 flex-wrap">
                       <span className="text-[#F0B90B]">{event.type}</span>
@@ -305,61 +321,82 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const candles: Array<CandlestickData<UTCTimestamp> & { label: string; volume: number }> = (value?.candles || []).map((c: any) => ({
-    time: Math.floor(new Date(c.open_time).getTime() / 1000) as UTCTimestamp,
-    label: String(c.close_time).slice(11, 16),
-    open: Number(c.open),
-    high: Number(c.high),
-    low: Number(c.low),
-    close: Number(c.close),
-    volume: Number(c.volume),
-  }))
+  const candles: Array<CandlestickData<UTCTimestamp> & { label: string; volume: number }> = (value?.candles || [])
+    .map((c: any) => ({
+      time: Math.floor(new Date(c.open_time).getTime() / 1000) as UTCTimestamp,
+      label: String(c.close_time).slice(11, 16),
+      open: Number(c.open),
+      high: Number(c.high),
+      low: Number(c.low),
+      close: Number(c.close),
+      volume: Number(c.volume),
+    }))
+    .filter((c) => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close))
+    .sort((a, b) => a.time - b.time)
 
   useEffect(() => {
     if (!containerRef.current) return
-    if (chartRef.current) {
-      chartRef.current.remove()
+    if (candles.length < 2) return
+    try {
+      if (!chartRef.current) {
+        const chart = createChart(containerRef.current, {
+          width: containerRef.current.clientWidth || 600,
+          height: 220,
+          layout: { background: { color: 'transparent' }, textColor: '#848E9C' },
+          grid: { vertLines: { color: '#2B3139' }, horzLines: { color: '#2B3139' } },
+          rightPriceScale: { borderColor: '#2B3139' },
+          timeScale: { borderColor: '#2B3139', timeVisible: true, secondsVisible: false },
+        })
+        const series = chart.addSeries(CandlestickSeries, {
+          upColor: '#0ECB81',
+          downColor: '#F6465D',
+          borderUpColor: '#0ECB81',
+          borderDownColor: '#F6465D',
+          wickUpColor: '#0ECB81',
+          wickDownColor: '#F6465D',
+        })
+        chartRef.current = chart
+        seriesRef.current = series
+        const onResize = () => {
+          if (containerRef.current && chartRef.current) {
+            chartRef.current.applyOptions({ width: containerRef.current.clientWidth || 600 })
+          }
+        }
+        window.addEventListener('resize', onResize)
+        ;(chartRef.current as any).__onResize = onResize
+      }
+      const seen = new Set<number>()
+      const chartData: CandlestickData<UTCTimestamp>[] = candles
+        .filter((c) => {
+          if (seen.has(c.time)) return false
+          seen.add(c.time)
+          return true
+        })
+        .map((c) => ({
+          time: c.time,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        }))
+      seriesRef.current?.setData(chartData)
+      chartRef.current?.timeScale().fitContent()
+    } catch (err) {
+      console.error('Backtest candlestick chart render failed:', err)
+    }
+    return () => {}
+  }, [candles])
+
+  useEffect(() => {
+    return () => {
+      const chart = chartRef.current
+      const onResize = (chartRef.current as any)?.__onResize
+      if (onResize) window.removeEventListener('resize', onResize)
+      chart?.remove()
       chartRef.current = null
       seriesRef.current = null
     }
-    const chart = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth || 600,
-      height: 220,
-      layout: { background: { color: 'transparent' }, textColor: '#848E9C' },
-      grid: { vertLines: { color: '#2B3139' }, horzLines: { color: '#2B3139' } },
-      rightPriceScale: { borderColor: '#2B3139' },
-      timeScale: { borderColor: '#2B3139', timeVisible: true, secondsVisible: false },
-    })
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#0ECB81',
-      downColor: '#F6465D',
-      borderUpColor: '#0ECB81',
-      borderDownColor: '#F6465D',
-      wickUpColor: '#0ECB81',
-      wickDownColor: '#F6465D',
-    })
-    const chartData: CandlestickData<UTCTimestamp>[] = candles.map((c) => ({
-      time: c.time,
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }))
-    series.setData(chartData)
-    chart.timeScale().fitContent()
-    chartRef.current = chart
-    seriesRef.current = series
-    const onResize = () => {
-      if (containerRef.current && chartRef.current) {
-        chartRef.current.applyOptions({ width: containerRef.current.clientWidth || 600 })
-      }
-    }
-    window.addEventListener('resize', onResize)
-    return () => {
-      window.removeEventListener('resize', onResize)
-      chart.remove()
-    }
-  }, [JSON.stringify(candles)])
+  }, [])
 
   return (
     <div className="rounded border border-white/10 bg-white/5 p-3">
@@ -367,7 +404,13 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
         <div className="text-[#F0B90B] font-semibold">{timeframe}</div>
         <div className="text-xs text-nofx-text-muted">{zh ? `K线数: ${value?.bars ?? 0} / 最新价: ${value?.last_price ?? '-'}` : `Bars: ${value?.bars ?? 0} / Last: ${value?.last_price ?? '-'}`}</div>
       </div>
-      <div ref={containerRef} className="h-[220px] w-full mb-3" />
+      {candles.length >= 2 ? (
+        <div ref={containerRef} className="h-[220px] w-full mb-3" />
+      ) : (
+        <div className="mb-3 rounded border border-white/10 bg-black/20 p-3 text-xs text-nofx-text-muted">
+          {zh ? '当前周期该时间框架 K 线不足 2 根，暂不绘制蜡烛图。' : 'Fewer than 2 candles for this timeframe in the selected cycle, so candlestick chart is skipped.'}
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-xs font-mono">
           <thead>
