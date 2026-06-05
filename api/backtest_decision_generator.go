@@ -125,13 +125,15 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 		nfR, _ = netFlowRankingData.(*nofxos.NetFlowRankingData)
 		prR, _ = priceRankingData.(*nofxos.PriceRankingData)
 	}
+	candleSignal := quant.BuildCandleTrendSignal(toMarketKlines(primaryWindow), mkt)
 	signal := quant.BuildSignal(in.Symbol, mkt, qd, oiR, nfR, prR)
 	payload := map[string]any{
-		"mode":            "prompt_preview",
-		"symbol":          in.Symbol,
-		"cycle":           in.Cycle,
-		"candidate_count": 1,
-		"quant_signal":    signal,
+		"mode":                     "prompt_preview",
+		"symbol":                   in.Symbol,
+		"cycle":                    in.Cycle,
+		"candidate_count":          1,
+		"quant_signal":             signal,
+		"candlestick_trend_signal": candleSignal,
 		"strategy_quant_flags": map[string]any{
 			"use_extended_quant_data": reqBool(g.useExtendedQuant),
 			"enable_quant_data":       cfg.Indicators.EnableQuantData,
@@ -157,7 +159,10 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 	userPrompt += fmt.Sprintf("Long Score: %.4f | Short Score: %.4f | Confidence: %.4f | Bias: %s | NoTrade: %v\n", signal.LongScore, signal.ShortScore, signal.Confidence, signal.ActionBias, signal.NoTrade)
 	userPrompt += fmt.Sprintf("Factor Breakdown: trend_long=%.4f trend_short=%.4f momentum_long=%.4f momentum_short=%.4f flow_long=%.4f flow_short=%.4f risk_penalty=%.4f\n", signal.FactorBreakdown.TrendLongScore, signal.FactorBreakdown.TrendShortScore, signal.FactorBreakdown.MomentumLongScore, signal.FactorBreakdown.MomentumShortScore, signal.FactorBreakdown.FlowLongScore, signal.FactorBreakdown.FlowShortScore, signal.FactorBreakdown.RiskPenalty)
 	userPrompt += fmt.Sprintf("Risk Budget: max_position_pct=%.4f max_leverage=%d allow_new_position=%v\n", signal.RiskBudget.MaxPositionPct, signal.RiskBudget.MaxLeverage, signal.RiskBudget.AllowNewPosition)
-	userPrompt += "Treat the quant signal as the primary bias layer. Only override it when you have a strong reason, and explain the override explicitly.\n"
+	userPrompt += "\n## Candlestick Trend Layer\n"
+	userPrompt += fmt.Sprintf("Trend Direction: %s | Trend Index: %.4f | Pattern: %s | Pattern Confidence: %.4f\n", candleSignal.TrendDirection, candleSignal.TrendIndex, candleSignal.Pattern.Name, candleSignal.Pattern.Confidence)
+	userPrompt += fmt.Sprintf("Context: after_downtrend=%v after_uptrend=%v volume_confirm=%v\n", candleSignal.Context.AfterDowntrend, candleSignal.Context.AfterUptrend, candleSignal.Context.VolumeConfirm)
+	userPrompt += "Treat the quant signal as the primary bias layer, and use candlestick trend as reversal confirmation. Only override when you have a strong reason, and explain it explicitly.\n"
 	payload["system_prompt_preview"] = truncate(systemPrompt, 400)
 	payload["user_prompt_preview"] = truncate(userPrompt, 400)
 	payload["system_prompt_length"] = len(systemPrompt)

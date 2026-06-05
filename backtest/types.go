@@ -41,12 +41,13 @@ const (
 type BacktestEventType string
 
 const (
-	EventCycleStart    BacktestEventType = "cycle_start"
-	EventQuantSignal   BacktestEventType = "quant_signal"
-	EventDecision      BacktestEventType = "decision"
-	EventOrderFilled   BacktestEventType = "order_filled"
-	EventPositionClose BacktestEventType = "position_close"
-	EventSnapshot      BacktestEventType = "equity_snapshot"
+	EventCycleStart       BacktestEventType = "cycle_start"
+	EventQuantSignal      BacktestEventType = "quant_signal"
+	EventCandlestickTrend BacktestEventType = "candlestick_trend_signal"
+	EventDecision         BacktestEventType = "decision"
+	EventOrderFilled      BacktestEventType = "order_filled"
+	EventPositionClose    BacktestEventType = "position_close"
+	EventSnapshot         BacktestEventType = "equity_snapshot"
 )
 
 // BacktestEvent is a timeline record for later debugging/reporting.

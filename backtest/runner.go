@@ -152,6 +152,15 @@ func (r *Runner) Run(ctx context.Context, cfg Config) (*Result, error) {
 						Payload: map[string]any{"quant_signal": qs},
 					})
 				}
+				if cs, ok := decisionPayload["candlestick_trend_signal"]; ok {
+					result.Events = append(result.Events, BacktestEvent{
+						Time:    decisionTime,
+						Type:    EventCandlestickTrend,
+						Symbol:  symbol,
+						Message: fmt.Sprintf("candlestick trend cycle %d", cycles+1),
+						Payload: map[string]any{"candlestick_trend_signal": cs},
+					})
+				}
 				result.Events = append(result.Events, BacktestEvent{
 					Time:    decisionTime,
 					Type:    EventDecision,
