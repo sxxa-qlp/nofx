@@ -94,8 +94,8 @@ func BuildSignal(symbol string, data *market.Data, qd *kernel.QuantData, oiRanki
 	}
 	risk := riskPenalty(data, regime)
 
-	longScore := clamp01(0.45*trendLong + 0.35*momLong + 0.15*flowLong - 0.10*risk)
-	shortScore := clamp01(0.45*trendShort + 0.35*momShort + 0.15*flowShort - 0.10*risk)
+	longScore := clamp01(0.55*trendLong + 0.25*momLong + 0.10*flowLong - 0.10*risk)
+	shortScore := clamp01(0.55*trendShort + 0.25*momShort + 0.10*flowShort - 0.10*risk)
 	delta := abs(longScore - shortScore)
 	confidence := clamp01(0.65*max(longScore, shortScore) + 0.35*delta)
 	noTrade := true
