@@ -4,9 +4,10 @@ import (
 	"nofx/kernel"
 	"nofx/market"
 	"nofx/provider/nofxos"
+	"nofx/store"
 )
 
-func BuildSignal(symbol string, data *market.Data, qd *kernel.QuantData, oiRanking *nofxos.OIRankingData, netflowRanking *nofxos.NetFlowRankingData, priceRanking *nofxos.PriceRankingData) *Signal {
+func BuildSignal(symbol string, data *market.Data, qd *kernel.QuantData, oiRanking *nofxos.OIRankingData, netflowRanking *nofxos.NetFlowRankingData, priceRanking *nofxos.PriceRankingData, indicators store.IndicatorConfig) *Signal {
 	regime := DetectRegime(data)
 	trendLong, trendShort := trendScores(data)
 	momLong, momShort := momentumScores(data)
@@ -93,18 +94,43 @@ func BuildSignal(symbol string, data *market.Data, qd *kernel.QuantData, oiRanki
 		}
 	}
 	risk := riskPenalty(data, regime)
+	weights := indicators.QuantScoring
+	trendWeight := weights.TrendWeight
+	momentumWeight := weights.MomentumWeight
+	flowWeight := weights.FlowWeight
+	riskWeight := weights.RiskWeight
+	entryThreshold := weights.EntryThreshold
+	deltaThreshold := weights.DeltaThreshold
+	if trendWeight == 0 {
+		trendWeight = 0.50
+	}
+	if momentumWeight == 0 {
+		momentumWeight = 0.30
+	}
+	if flowWeight == 0 {
+		flowWeight = 0.10
+	}
+	if riskWeight == 0 {
+		riskWeight = 0.10
+	}
+	if entryThreshold == 0 {
+		entryThreshold = 0.52
+	}
+	if deltaThreshold == 0 {
+		deltaThreshold = 0.10
+	}
 
-	longScore := clamp01(0.50*trendLong + 0.30*momLong + 0.10*flowLong - 0.10*risk)
-	shortScore := clamp01(0.50*trendShort + 0.30*momShort + 0.10*flowShort - 0.10*risk)
+	longScore := clamp01(trendWeight*trendLong + momentumWeight*momLong + flowWeight*flowLong - riskWeight*risk)
+	shortScore := clamp01(trendWeight*trendShort + momentumWeight*momShort + flowWeight*flowShort - riskWeight*risk)
 	delta := abs(longScore - shortScore)
 	confidence := clamp01(0.60*max(longScore, shortScore) + 0.40*delta)
 	noTrade := true
 	actionBias := "wait"
-	if longScore >= 0.52 && longScore-shortScore > 0.10 {
+	if longScore >= entryThreshold && longScore-shortScore > deltaThreshold {
 		noTrade = false
 		actionBias = "open_long"
 	}
-	if shortScore >= 0.52 && shortScore-longScore > 0.10 {
+	if shortScore >= entryThreshold && shortScore-longScore > deltaThreshold {
 		noTrade = false
 		actionBias = "open_short"
 	}

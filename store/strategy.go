@@ -724,6 +724,12 @@ type CoinSourceConfig struct {
 type IndicatorConfig struct {
 	// K-line configuration
 	Klines KlineConfig `json:"klines"`
+	// Quantitative scoring weights for pure exchange-data mode.
+	// These control how strongly each factor contributes to long/short scores.
+	QuantScoring QuantScoringConfig `json:"quant_scoring,omitempty"`
+	// Candlestick trend scoring weights for reversal-pattern analysis.
+	// These weights control pattern importance and confirmation context strength.
+	CandleTrend CandleTrendConfig `json:"candle_trend,omitempty"`
 	// raw kline data (OHLCV) - always enabled, required for AI analysis
 	EnableRawKlines bool `json:"enable_raw_klines"`
 	// technical indicator switches
@@ -785,6 +791,38 @@ type KlineConfig struct {
 	EnableMultiTimeframe bool `json:"enable_multi_timeframe"`
 	// selected timeframe list (new: supports multi-timeframe selection)
 	SelectedTimeframes []string `json:"selected_timeframes,omitempty"`
+}
+
+// QuantScoringConfig controls weights and thresholds used by the quant signal engine.
+type QuantScoringConfig struct {
+	// Weight of the trend factor in final long/short score.
+	TrendWeight float64 `json:"trend_weight,omitempty"`
+	// Weight of the momentum factor in final long/short score.
+	MomentumWeight float64 `json:"momentum_weight,omitempty"`
+	// Weight of the flow factor in final long/short score.
+	FlowWeight float64 `json:"flow_weight,omitempty"`
+	// Weight of the risk penalty in final long/short score.
+	RiskWeight float64 `json:"risk_weight,omitempty"`
+	// Minimum final score required before allowing an entry bias.
+	EntryThreshold float64 `json:"entry_threshold,omitempty"`
+	// Minimum gap between long_score and short_score to avoid ambiguous entries.
+	DeltaThreshold float64 `json:"delta_threshold,omitempty"`
+}
+
+// CandleTrendConfig controls candlestick reversal trend scoring.
+type CandleTrendConfig struct {
+	// Master switch for candlestick trend layer.
+	Enabled bool `json:"enabled"`
+	// Weight multiplier for engulfing reversal patterns.
+	EngulfingWeight float64 `json:"engulfing_weight,omitempty"`
+	// Weight multiplier for hammer / shooting-star style reversals.
+	HammerWeight float64 `json:"hammer_weight,omitempty"`
+	// Weight multiplier for morning/evening star reversals.
+	StarWeight float64 `json:"star_weight,omitempty"`
+	// Weight of context confirmation (trend location / volume confirmation).
+	ContextWeight float64 `json:"context_weight,omitempty"`
+	// Minimum trend index considered meaningful for downstream AI context.
+	MinTrendIndex float64 `json:"min_trend_index,omitempty"`
 }
 
 // ExternalDataSource external data source configuration

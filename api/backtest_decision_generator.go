@@ -125,8 +125,8 @@ func (g *apiBacktestDecisionGenerator) Generate(ctx context.Context, in backtest
 		nfR, _ = netFlowRankingData.(*nofxos.NetFlowRankingData)
 		prR, _ = priceRankingData.(*nofxos.PriceRankingData)
 	}
-	candleSignal := quant.BuildCandleTrendSignal(toMarketKlines(primaryWindow), mkt)
-	signal := quant.BuildSignal(in.Symbol, mkt, qd, oiR, nfR, prR)
+	candleSignal := quant.BuildCandleTrendSignal(toMarketKlines(primaryWindow), mkt, cfg.Indicators)
+	signal := quant.BuildSignal(in.Symbol, mkt, qd, oiR, nfR, prR, cfg.Indicators)
 	payload := map[string]any{
 		"mode":                     "prompt_preview",
 		"symbol":                   in.Symbol,

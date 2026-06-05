@@ -1,8 +1,11 @@
 package quant
 
-import "nofx/market"
+import (
+	"nofx/market"
+	"nofx/store"
+)
 
-func BuildCandleTrendSignal(klines []market.Kline, longer *market.Data) *CandleTrendSignal {
+func BuildCandleTrendSignal(klines []market.Kline, longer *market.Data, indicators store.IndicatorConfig) *CandleTrendSignal {
 	if len(klines) == 0 {
 		return &CandleTrendSignal{TrendDirection: "neutral", TrendIndex: 0}
 	}
@@ -21,36 +24,62 @@ func BuildCandleTrendSignal(klines []market.Kline, longer *market.Data) *CandleT
 	}
 
 	best := CandleTrendSignal{TrendDirection: "neutral", TrendIndex: 0, Context: ctx}
-	setBull := func(name string, strength float64) {
-		conf := clamp01(0.6*strength + 0.25*boolScore(ctx.AfterDowntrend) + 0.15*boolScore(ctx.VolumeConfirm))
+	cw := indicators.CandleTrend
+	engulfingWeight := cw.EngulfingWeight
+	hammerWeight := cw.HammerWeight
+	starWeight := cw.StarWeight
+	contextWeight := cw.ContextWeight
+	minTrendIndex := cw.MinTrendIndex
+	if engulfingWeight == 0 {
+		engulfingWeight = 1.0
+	}
+	if hammerWeight == 0 {
+		hammerWeight = 0.9
+	}
+	if starWeight == 0 {
+		starWeight = 1.1
+	}
+	if contextWeight == 0 {
+		contextWeight = 0.4
+	}
+	if minTrendIndex == 0 {
+		minTrendIndex = 0.45
+	}
+	patternWeightBase := 1 - contextWeight
+	setBull := func(name string, strength float64, patternWeight float64) {
+		conf := clamp01(patternWeightBase*(strength*patternWeight) + 0.6*contextWeight*boolScore(ctx.AfterDowntrend) + 0.4*contextWeight*boolScore(ctx.VolumeConfirm))
 		if conf > best.TrendIndex {
 			best = CandleTrendSignal{TrendDirection: "bullish_reversal", TrendIndex: conf, Context: ctx, Pattern: CandlePattern{Name: name, Direction: "bullish", Strength: strength, Confidence: conf}}
 		}
 	}
-	setBear := func(name string, strength float64) {
-		conf := clamp01(0.6*strength + 0.25*boolScore(ctx.AfterUptrend) + 0.15*boolScore(ctx.VolumeConfirm))
+	setBear := func(name string, strength float64, patternWeight float64) {
+		conf := clamp01(patternWeightBase*(strength*patternWeight) + 0.6*contextWeight*boolScore(ctx.AfterUptrend) + 0.4*contextWeight*boolScore(ctx.VolumeConfirm))
 		if conf > best.TrendIndex {
 			best = CandleTrendSignal{TrendDirection: "bearish_reversal", TrendIndex: conf, Context: ctx, Pattern: CandlePattern{Name: name, Direction: "bearish", Strength: strength, Confidence: conf}}
 		}
 	}
 
 	if s, ok := detectBullishEngulfing(klines); ok {
-		setBull("bullish_engulfing", s)
+		setBull("bullish_engulfing", s, engulfingWeight)
 	}
 	if s, ok := detectBearishEngulfing(klines); ok {
-		setBear("bearish_engulfing", s)
+		setBear("bearish_engulfing", s, engulfingWeight)
 	}
 	if s, ok := detectHammer(klines); ok {
-		setBull("hammer", s)
+		setBull("hammer", s, hammerWeight)
 	}
 	if s, ok := detectShootingStar(klines); ok {
-		setBear("shooting_star", s)
+		setBear("shooting_star", s, hammerWeight)
 	}
 	if s, ok := detectMorningStar(klines); ok {
-		setBull("morning_star", s)
+		setBull("morning_star", s, starWeight)
 	}
 	if s, ok := detectEveningStar(klines); ok {
-		setBear("evening_star", s)
+		setBear("evening_star", s, starWeight)
+	}
+	if best.TrendIndex < minTrendIndex {
+		best.TrendDirection = "neutral"
+		best.Pattern = CandlePattern{}
 	}
 	return &best
 }
