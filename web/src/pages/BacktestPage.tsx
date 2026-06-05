@@ -332,7 +332,7 @@ function TimeframeBarsCard({ timeframe, value, zh }: { timeframe: string; value:
       volume: Number(c.volume),
     }))
     .filter((c) => Number.isFinite(c.open) && Number.isFinite(c.high) && Number.isFinite(c.low) && Number.isFinite(c.close))
-    .sort((a, b) => a.time - b.time)
+    .sort((a, b) => Number(a.time) - Number(b.time))
 
   useEffect(() => {
     if (!containerRef.current) return
