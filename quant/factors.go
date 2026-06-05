@@ -11,21 +11,27 @@ func trendScores(data *market.Data) (float64, float64) {
 
 	if data.CurrentEMA20 > 0 {
 		if data.CurrentPrice >= data.CurrentEMA20 {
-			longScore += 0.35
+			longScore += 0.30
 		} else {
-			shortScore += 0.35
+			shortScore += 0.30
 		}
 	}
 	if data.LongerTermContext != nil && data.LongerTermContext.EMA20 > 0 && data.LongerTermContext.EMA50 > 0 {
 		if data.LongerTermContext.EMA20 >= data.LongerTermContext.EMA50 {
-			longScore += 0.45
+			longScore += 0.40
 			if data.CurrentPrice >= data.LongerTermContext.EMA20 {
-				longScore += 0.10
+				longScore += 0.15
+			}
+			if data.PriceChange4h > 0 {
+				longScore += 0.15
 			}
 		} else {
-			shortScore += 0.45
+			shortScore += 0.40
 			if data.CurrentPrice <= data.LongerTermContext.EMA20 {
-				shortScore += 0.10
+				shortScore += 0.15
+			}
+			if data.PriceChange4h < 0 {
+				shortScore += 0.15
 			}
 		}
 	}
@@ -39,21 +45,27 @@ func momentumScores(data *market.Data) (float64, float64) {
 	longScore := 0.0
 	shortScore := 0.0
 	if data.CurrentMACD > 0 {
-		longScore += 0.45
+		longScore += 0.40
 	} else if data.CurrentMACD < 0 {
-		shortScore += 0.45
+		shortScore += 0.40
 	}
-	if data.CurrentRSI7 >= 55 && data.CurrentRSI7 <= 68 {
-		longScore += 0.35
+	if data.CurrentRSI7 >= 52 && data.CurrentRSI7 <= 70 {
+		longScore += 0.30
 	}
-	if data.CurrentRSI7 <= 45 && data.CurrentRSI7 >= 32 {
-		shortScore += 0.35
+	if data.CurrentRSI7 <= 48 && data.CurrentRSI7 >= 28 {
+		shortScore += 0.30
 	}
 	if data.PriceChange1h > 0 && data.CurrentMACD > 0 {
-		longScore += 0.20
+		longScore += 0.15
 	}
 	if data.PriceChange1h < 0 && data.CurrentMACD < 0 {
-		shortScore += 0.20
+		shortScore += 0.15
+	}
+	if data.PriceChange4h > 0 && data.CurrentRSI7 >= 50 {
+		longScore += 0.15
+	}
+	if data.PriceChange4h < 0 && data.CurrentRSI7 <= 50 {
+		shortScore += 0.15
 	}
 	return clamp01(longScore), clamp01(shortScore)
 }
